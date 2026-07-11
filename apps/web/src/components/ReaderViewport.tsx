@@ -1,121 +1,211 @@
-import { useCallback, useRef } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import type { FontFamilyId } from "../hooks/useLocalReaderPrefs";
 
 interface ReaderViewportProps {
-  pageText: string;
+  /** 整章文本，由浏览器多栏排版自动分页，永不裁字 */
+  text: string;
+  /** 当前页（0-based） */
+  pageIndex: number;
   fontSize: number;
   lineHeight: number;
+  fontFamily: FontFamilyId;
   pageMargin: "compact" | "normal" | "relaxed";
+  /** 本章总页数变化时上报 */
+  onPageCount: (count: number) => void;
   onPrev: () => void;
   onNext: () => void;
   onToggleChrome: () => void;
-  contentRef: React.RefObject<HTMLDivElement>;
 }
 
-/** 窄屏用更紧凑边距，避免手机行过短或留白过大 */
-function marginStyle(
-  pageMargin: "compact" | "normal" | "relaxed",
-): string {
-  // 水平用 clamp，竖向略小
-  switch (pageMargin) {
-    case "compact":
-      return "0.75rem clamp(0.75rem, 4vw, 1rem)";
-    case "relaxed":
-      return "1.25rem clamp(1rem, 5vw, 2rem)";
-    default:
-      return "1rem clamp(0.875rem, 4.5vw, 1.5rem)";
-  }
-}
+const VERTICAL_PAD: Record<string, string> = {
+  compact: "0.75rem",
+  normal: "1rem",
+  relaxed: "1.25rem",
+};
+const HORIZONTAL_PAD: Record<string, string> = {
+  compact: "clamp(0.75rem, 4vw, 1rem)",
+  relaxed: "clamp(1rem, 5vw, 2rem)",
+  normal: "clamp(0.875rem, 4.5vw, 1.5rem)",
+};
 
+const FONT_STACK: Record<FontFamilyId, string> = {
+  serif:
+    '"Noto Serif SC", "Source Han Serif SC", "Songti SC", "SimSun", serif',
+  sans: '"Noto Sans SC", "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif',
+};
+
+const SWIPE_THRESHOLD = 48;
+
+/**
+ * 用 CSS 多栏把整章排成横向若干「栏」，每栏正好一页，
+ * 通过 translateX 平移实现翻页动画。分页交给浏览器，从根上避免裁字/遮挡。
+ */
 export default function ReaderViewport({
-  pageText,
+  text,
+  pageIndex,
   fontSize,
   lineHeight,
+  fontFamily,
   pageMargin,
+  onPageCount,
   onPrev,
   onNext,
   onToggleChrome,
-  contentRef,
 }: ReaderViewportProps) {
+  const frameRef = useRef<HTMLDivElement>(null);
+  const clipRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  // 每页步进宽度（裁剪窗口宽度），用于平移与跟手拖动
+  const [stride, setStride] = useState(1);
+  const [animate, setAnimate] = useState(false);
+  const [dragDx, setDragDx] = useState(0);
+
   const startX = useRef<number | null>(null);
   const startY = useRef<number | null>(null);
-  const moved = useRef(false);
+  const dragging = useRef(false);
+  const axisLocked = useRef<"h" | "v" | null>(null);
+
+  // 测量总页数与步进宽度。列宽 = 裁剪窗口宽度（stride）。
+  // 首次测量时 stride 还是旧值，列宽与实际不符，先只更新 stride 触发复算，
+  // 待列宽与测量宽度一致后再上报页数，避免错误页数吞掉待恢复的页码。
+  const measure = useCallback(() => {
+    const clip = clipRef.current;
+    const track = trackRef.current;
+    if (!clip || !track) return;
+    if (!text) return;
+    const contentWidth = clip.clientWidth;
+    if (contentWidth <= 0) return;
+    if (stride !== contentWidth) {
+      setStride(contentWidth);
+      return;
+    }
+    const total = track.scrollWidth;
+    const count = Math.max(1, Math.round(total / contentWidth));
+    onPageCount(count);
+  }, [onPageCount, text, stride]);
+
+  useLayoutEffect(() => {
+    measure();
+  }, [measure, stride, text, fontSize, lineHeight, fontFamily, pageMargin]);
+
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const ro = new ResizeObserver(() => measure());
+    ro.observe(frame);
+    window.visualViewport?.addEventListener("resize", measure);
+    window.addEventListener("orientationchange", measure);
+    return () => {
+      ro.disconnect();
+      window.visualViewport?.removeEventListener("resize", measure);
+      window.removeEventListener("orientationchange", measure);
+    };
+  }, [measure]);
+
+  // 翻页时开启动画；测量重排时不带动画，避免跳动
+  useEffect(() => {
+    setAnimate(true);
+  }, [pageIndex]);
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     startX.current = e.clientX;
     startY.current = e.clientY;
-    moved.current = false;
+    dragging.current = true;
+    axisLocked.current = null;
+    setAnimate(false);
   }, []);
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
-    if (startX.current == null) return;
-    const dx = Math.abs(e.clientX - startX.current);
-    const dy = Math.abs(e.clientY - (startY.current ?? e.clientY));
-    if (dx > 10 || dy > 10) moved.current = true;
+    if (!dragging.current || startX.current == null) return;
+    const dx = e.clientX - startX.current;
+    const dy = e.clientY - (startY.current ?? e.clientY);
+    if (axisLocked.current == null) {
+      if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+        axisLocked.current = Math.abs(dx) > Math.abs(dy) ? "h" : "v";
+      }
+    }
+    if (axisLocked.current === "h") {
+      e.preventDefault();
+      setDragDx(dx);
+    }
   }, []);
 
-  const onPointerUp = useCallback(
+  const endDrag = useCallback(
     (e: React.PointerEvent) => {
-      if (startX.current == null) return;
-      const dx = e.clientX - startX.current;
-      const dy = e.clientY - (startY.current ?? e.clientY);
-      startX.current = null;
-      startY.current = null;
-
-      // 纵向滑动优先忽略（避免误翻页）
-      if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 40) {
+      if (!dragging.current || startX.current == null) {
         return;
       }
+      const dx = e.clientX - startX.current;
+      const dy = e.clientY - (startY.current ?? e.clientY);
+      const wasHorizontal = axisLocked.current === "h";
+      dragging.current = false;
+      startX.current = null;
+      startY.current = null;
+      axisLocked.current = null;
+      setAnimate(true);
+      setDragDx(0);
 
-      if (Math.abs(dx) > 40) {
+      if (wasHorizontal && Math.abs(dx) > SWIPE_THRESHOLD) {
         if (dx < 0) onNext();
         else onPrev();
         return;
       }
-      if (moved.current) return;
 
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      const ratio = (e.clientX - rect.left) / rect.width;
-      // 手机两侧热区略收窄，中间更大方便唤出工具栏
-      if (ratio < 0.28) onPrev();
-      else if (ratio > 0.72) onNext();
-      else onToggleChrome();
+      // 未构成滑动：按点击位置分区（两侧翻页，中间唤出工具栏）
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) {
+        const frame = frameRef.current;
+        if (!frame) return;
+        const rect = frame.getBoundingClientRect();
+        const ratio = (e.clientX - rect.left) / rect.width;
+        if (ratio < 0.3) onPrev();
+        else if (ratio > 0.7) onNext();
+        else onToggleChrome();
+      }
     },
     [onNext, onPrev, onToggleChrome],
   );
 
-  // fontSize 由 ReaderPage 按屏宽算好后传入，此处直接使用
+  const translateX = -(pageIndex * stride) + dragDx;
+
   return (
     <div
-      className="relative h-full min-h-0 w-full touch-pan-y select-none bg-[var(--page-bg)]"
+      ref={frameRef}
+      className="reader-page relative h-full w-full touch-pan-y select-none overflow-hidden"
+      style={{
+        padding: `${VERTICAL_PAD[pageMargin]} ${HORIZONTAL_PAD[pageMargin]}`,
+      }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={() => {
-        startX.current = null;
-        startY.current = null;
-      }}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
     >
-      <div
-        ref={contentRef}
-        className="reader-page mx-auto box-border flex h-full w-full max-w-[720px] flex-col overflow-hidden"
-        style={{
-          fontSize: `${fontSize}px`,
-          lineHeight: String(lineHeight),
-          padding: marginStyle(pageMargin),
-          ["--reader-font-size" as string]: `${fontSize}px`,
-          ["--reader-line-height" as string]: String(lineHeight),
-        }}
-      >
-        <div className="reader-page-inner min-h-0 flex-1 overflow-hidden whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-          {pageText}
+      {/* 裁剪窗口：只露出当前栏，padding 区不会漏出相邻栏 */}
+      <div ref={clipRef} className="h-full w-full overflow-hidden">
+        <div
+          ref={trackRef}
+          className="reader-track h-full whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
+          style={{
+            fontSize: `${fontSize}px`,
+            lineHeight: String(lineHeight),
+            fontFamily: FONT_STACK[fontFamily],
+            columnWidth: `${stride}px`,
+            columnGap: 0,
+            columnFill: "auto",
+            transform: `translateX(${translateX}px)`,
+            transition: animate ? "transform 0.28s ease" : "none",
+            willChange: "transform",
+          }}
+        >
+          {text}
         </div>
       </div>
-
-      {/* 侧边热区提示（极淡，不挡阅读） */}
-      <div
-        className="pointer-events-none absolute inset-y-0 left-0 w-[12%] opacity-0 sm:opacity-0"
-        aria-hidden
-      />
     </div>
   );
 }
