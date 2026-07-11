@@ -117,14 +117,14 @@ function collectUploadFilesFromFormData(form: FormData): File[] {
   return out;
 }
 
-function isUploadFile(v: FormDataEntryValue): v is File {
-  if (typeof v === "string") return false;
+function isUploadFile(v: unknown): v is File {
+  if (v == null || typeof v === "string") return false;
   // 不用 instanceof File：跨 realm 可能失败；Blob + name 即可
   return (
     typeof Blob !== "undefined" &&
     v instanceof Blob &&
     typeof (v as File).name === "string" &&
-    typeof v.arrayBuffer === "function"
+    typeof (v as Blob).arrayBuffer === "function"
   );
 }
 

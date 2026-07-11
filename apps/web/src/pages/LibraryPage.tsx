@@ -123,7 +123,9 @@ export default function LibraryPage() {
         } else {
           setError(null);
           const names = ready.map((s) => `《${s.title}》(${s.chapterCount}章)`);
-          setImportStatus(`导入成功：${names.join("、")}`);
+          setImportStatus(
+            `导入成功：${names.join("、")}（同名系列会自动追加到已有书）`,
+          );
         }
       } catch (err) {
         console.error("[雨读] 导入失败", err);

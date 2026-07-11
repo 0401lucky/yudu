@@ -172,7 +172,7 @@ export default function ImportDropzone({
             MB/个
           </p>
           <p className="mt-1 text-xs text-[var(--text-muted)]">
-            「书名-01」「书名-02」等同批会自动合并为一本书
+            「书名-01/02」合并为一本；之后再导「书名-03」会追加到已有书
           </p>
         </button>
       )}
