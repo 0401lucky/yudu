@@ -1,0 +1,12 @@
+{
+  "name": "yudu",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev:web": "pnpm --filter @yudu/web dev",
+    "dev:api": "pnpm --filter @yudu/api dev",
+    "build": "pnpm -r run build",
+    "test": "pnpm -r run test",
+    "typecheck": "pnpm -r run typecheck"
+  }
+}
