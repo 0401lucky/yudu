@@ -1,7 +1,10 @@
 import type { BookDetail, ChapterContent } from "@yudu/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import ReaderChrome from "../components/ReaderChrome";
+import {
+  ReaderFooter,
+  ReaderHeader,
+} from "../components/ReaderChrome";
 import ReaderViewport from "../components/ReaderViewport";
 import TocDrawer from "../components/TocDrawer";
 import { useThemePrefs } from "../components/ThemeProvider";
@@ -15,9 +18,9 @@ import {
 } from "../lib/pagination";
 
 const MARGIN_PX: Record<string, number> = {
-  compact: 16,
-  normal: 24,
-  relaxed: 32,
+  compact: 12,
+  normal: 16,
+  relaxed: 20,
 };
 
 export default function ReaderPage() {
@@ -39,7 +42,6 @@ export default function ReaderPage() {
   const contentRef = useRef<HTMLDivElement>(null!);
   const measureRef = useRef<HTMLDivElement>(null);
 
-  // 加载书与进度
   useEffect(() => {
     if (!bookId) return;
     let cancelled = false;
@@ -71,7 +73,6 @@ export default function ReaderPage() {
     };
   }, [bookId]);
 
-  // 拉章节
   useEffect(() => {
     if (!bookId || !book) return;
     let cancelled = false;
@@ -90,41 +91,72 @@ export default function ReaderPage() {
     };
   }, [bookId, book, chapterIndex]);
 
-  // 测量版心
+  // 测量真实可用区域（chrome 在文档流内，flex-1 区域即版心）
   useEffect(() => {
     const el = measureRef.current;
     if (!el) return;
-    const ro = new ResizeObserver((entries) => {
-      const cr = entries[0]?.contentRect;
-      if (!cr) return;
-      setViewport({
-        width: Math.max(1, Math.floor(cr.width)),
-        height: Math.max(1, Math.floor(cr.height)),
-      });
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [loading, book]);
 
-  const pad = MARGIN_PX[prefs.pageMargin] ?? 24;
-  const metrics: PageMetrics = useMemo(
-    () => ({
+    const update = () => {
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      if (w > 0 && h > 0) {
+        setViewport({
+          width: Math.max(1, Math.floor(w)),
+          height: Math.max(1, Math.floor(h)),
+        });
+      }
+    };
+
+    update();
+    const ro = new ResizeObserver(() => update());
+    ro.observe(el);
+
+    // 移动端地址栏伸缩
+    window.visualViewport?.addEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+
+    return () => {
+      ro.disconnect();
+      window.visualViewport?.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+    };
+  }, [loading, book, chromeVisible]);
+
+  // 窄屏用更小边距参与分页估算
+  const narrow = viewport.width < 480;
+  const pad = narrow
+    ? Math.min(MARGIN_PX[prefs.pageMargin] ?? 16, 14)
+    : (MARGIN_PX[prefs.pageMargin] ?? 16);
+
+  // 估算字号与实际显示一致（手机上限 22，与 Viewport 一致）
+  const effectiveFontSize = narrow
+    ? Math.min(prefs.fontSize, 22)
+    : prefs.fontSize;
+
+  const metrics: PageMetrics = useMemo(() => {
+    // 安全余量：估算分页略偏乐观时避免文字溢出底边
+    const safety = narrow ? 12 : 8;
+    return {
       width: Math.max(1, viewport.width - pad * 2),
-      height: Math.max(1, viewport.height - pad * 2),
-      fontSize: prefs.fontSize,
+      height: Math.max(1, viewport.height - pad * 2 - safety),
+      fontSize: effectiveFontSize,
       lineHeight: prefs.lineHeight,
       fontFamily: "serif",
-      paragraphGap: Math.round(prefs.fontSize * 0.7),
-    }),
-    [viewport, prefs.fontSize, prefs.lineHeight, prefs.pageMargin, pad],
-  );
+      paragraphGap: Math.round(effectiveFontSize * 0.65),
+    };
+  }, [
+    viewport,
+    pad,
+    effectiveFontSize,
+    prefs.lineHeight,
+    narrow,
+  ]);
 
   const pageStarts = useMemo(() => {
     if (!chapter) return [0];
     return paginateText(chapter.text, metrics);
   }, [chapter, metrics]);
 
-  // 版式变化时用 charOffset 映射页码
   useEffect(() => {
     if (!chapter) return;
     const idx = pageIndexForOffset(pageStarts, charOffset);
@@ -133,10 +165,9 @@ export default function ReaderPage() {
     if (start !== charOffset) {
       setCharOffset(start);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅在分页结果变化时重映射
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageStarts, chapter?.index]);
 
-  // 同步进度
   useEffect(() => {
     if (!book || !chapter) return;
     schedule(chapterIndex, charOffset, pageIndex);
@@ -147,9 +178,8 @@ export default function ReaderPage() {
       if (!chapter || !book) return;
       if (nextPage < 0) {
         if (chapterIndex <= 0) return;
-        const prevIdx = chapterIndex - 1;
-        setChapterIndex(prevIdx);
-        setCharOffset(Number.MAX_SAFE_INTEGER); // 将在新章加载后钳到末页
+        setChapterIndex(chapterIndex - 1);
+        setCharOffset(Number.MAX_SAFE_INTEGER);
         return;
       }
       if (nextPage >= pageStarts.length) {
@@ -166,7 +196,6 @@ export default function ReaderPage() {
     [book, chapter, chapterIndex, pageStarts],
   );
 
-  // 跳到上章时定位到最后一页
   useEffect(() => {
     if (!chapter) return;
     if (charOffset === Number.MAX_SAFE_INTEGER) {
@@ -177,8 +206,14 @@ export default function ReaderPage() {
     }
   }, [chapter, pageStarts, charOffset]);
 
-  const onPrev = useCallback(() => goToPage(pageIndex - 1), [goToPage, pageIndex]);
-  const onNext = useCallback(() => goToPage(pageIndex + 1), [goToPage, pageIndex]);
+  const onPrev = useCallback(
+    () => goToPage(pageIndex - 1),
+    [goToPage, pageIndex],
+  );
+  const onNext = useCallback(
+    () => goToPage(pageIndex + 1),
+    [goToPage, pageIndex],
+  );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -199,12 +234,12 @@ export default function ReaderPage() {
     : "";
 
   const pageLabel = chapter
-    ? `第 ${chapterIndex + 1}/${book?.chapters.length ?? 1} 章 · ${pageIndex + 1}/${pageStarts.length} 页`
+    ? `第 ${chapterIndex + 1}/${book?.chapters.length ?? 1} 章 · ${pageIndex + 1}/${Math.max(pageStarts.length, 1)} 页`
     : "";
 
   if (loading) {
     return (
-      <main className="flex min-h-full items-center justify-center p-8">
+      <main className="flex min-h-[100dvh] items-center justify-center p-8">
         <p className="text-[var(--text-muted)]">加载中…</p>
       </main>
     );
@@ -212,7 +247,7 @@ export default function ReaderPage() {
 
   if (error || !book) {
     return (
-      <main className="flex min-h-full flex-col items-center justify-center gap-4 p-8">
+      <main className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 p-8">
         <p className="text-red-400" role="alert">
           {error ?? "书籍不存在"}
         </p>
@@ -224,30 +259,19 @@ export default function ReaderPage() {
   }
 
   return (
-    <main className="relative flex h-[100dvh] flex-col overflow-hidden bg-[var(--page-bg)]">
-      <ReaderChrome
+    <main className="flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden bg-[var(--page-bg)]">
+      <ReaderHeader
         visible={chromeVisible}
         title={book.title}
         chapterTitle={chapter?.title ?? ""}
-        pageLabel={pageLabel}
-        prefs={prefs}
         onOpenToc={() => setTocOpen(true)}
-        onPrefs={(partial) => {
-          void setPrefs(partial);
-        }}
       />
 
-      <div
-        ref={measureRef}
-        className="relative min-h-0 flex-1"
-        style={{
-          paddingTop: chromeVisible ? "3.25rem" : 0,
-          paddingBottom: chromeVisible ? "3.25rem" : 0,
-        }}
-      >
+      {/* 唯一测量区：顶底栏不占 fixed，这里高度 = 真实可读区域 */}
+      <div ref={measureRef} className="relative min-h-0 flex-1 overflow-hidden">
         <ReaderViewport
           pageText={pageText}
-          fontSize={prefs.fontSize}
+          fontSize={effectiveFontSize}
           lineHeight={prefs.lineHeight}
           pageMargin={prefs.pageMargin}
           onPrev={onPrev}
@@ -256,6 +280,15 @@ export default function ReaderPage() {
           contentRef={contentRef}
         />
       </div>
+
+      <ReaderFooter
+        visible={chromeVisible}
+        pageLabel={pageLabel}
+        prefs={prefs}
+        onPrefs={(partial) => {
+          void setPrefs(partial);
+        }}
+      />
 
       <TocDrawer
         open={tocOpen}
@@ -266,6 +299,7 @@ export default function ReaderPage() {
           setChapterIndex(idx);
           setCharOffset(0);
           setPageIndex(0);
+          setTocOpen(false);
         }}
       />
     </main>

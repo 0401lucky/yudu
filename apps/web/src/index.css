@@ -21,12 +21,17 @@
   --border: #e0d6c6;
   --page-bg: #f7f2e8;
 }
-html, body, #root { height: 100%; }
+html, body, #root {
+  height: 100%;
+  height: 100dvh;
+}
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
   font-family: system-ui, "Segoe UI", sans-serif;
+  /* 防止 iOS 橡皮筋把整页拖飞 */
+  overscroll-behavior: none;
 }
 
 .reader-page,
@@ -37,11 +42,21 @@ body {
   background: var(--page-bg);
 }
 
+.reader-page-inner {
+  /* 分页溢出时宁可裁切，也不要顶到工具栏下面 */
+  overflow: hidden;
+}
+
 .safe-top {
   padding-top: env(safe-area-inset-top, 0);
 }
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* 阅读页禁止横向溢出 */
+.reader-chrome {
+  max-width: 100vw;
 }
 
 :focus-visible {
