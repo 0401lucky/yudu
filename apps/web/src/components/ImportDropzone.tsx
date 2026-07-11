@@ -4,7 +4,8 @@ import { useCallback, useId, useRef, useState } from "react";
 const ACCEPT = SUPPORTED_FORMATS.map((f) => `.${f}`).join(",");
 
 interface ImportDropzoneProps {
-  onFile: (file: File) => void | Promise<void>;
+  /** 支持多文件；同批「书名-序号」会在服务端合并 */
+  onFiles: (files: File[]) => void | Promise<void>;
   disabled?: boolean;
   compact?: boolean;
 }
@@ -15,7 +16,7 @@ function isSupportedName(name: string): boolean {
 }
 
 export default function ImportDropzone({
-  onFile,
+  onFiles,
   disabled,
   compact,
 }: ImportDropzoneProps) {
@@ -25,26 +26,38 @@ export default function ImportDropzone({
   const [localError, setLocalError] = useState<string | null>(null);
 
   const validateAndSend = useCallback(
-    async (file: File | undefined | null) => {
+    async (list: FileList | File[] | null | undefined) => {
       setLocalError(null);
-      if (!file) return;
+      if (!list || list.length === 0) return;
 
-      if (!isSupportedName(file.name)) {
-        setLocalError("仅支持 txt、md、epub 格式");
-        return;
+      const files = Array.from(list);
+      const accepted: File[] = [];
+      for (const file of files) {
+        if (!isSupportedName(file.name)) {
+          setLocalError(`跳过不支持的格式：${file.name}（仅 txt / md / epub）`);
+          continue;
+        }
+        if (file.size > MAX_UPLOAD_BYTES) {
+          setLocalError(
+            `${file.name} 超过上限 ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB`,
+          );
+          continue;
+        }
+        if (file.size === 0) {
+          setLocalError(`${file.name} 为空`);
+          continue;
+        }
+        accepted.push(file);
       }
-      if (file.size > MAX_UPLOAD_BYTES) {
-        setLocalError(`文件超过上限 ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB`);
-        return;
-      }
-      if (file.size === 0) {
-        setLocalError("文件为空");
+
+      if (!accepted.length) {
+        setLocalError((prev) => prev ?? "没有可导入的文件");
         return;
       }
 
-      await onFile(file);
+      await onFiles(accepted);
     },
-    [onFile],
+    [onFiles],
   );
 
   function onDragOver(e: React.DragEvent) {
@@ -64,8 +77,7 @@ export default function ImportDropzone({
     e.stopPropagation();
     setDragging(false);
     if (disabled) return;
-    const file = e.dataTransfer.files?.[0];
-    await validateAndSend(file);
+    await validateAndSend(e.dataTransfer.files);
   }
 
   return (
@@ -90,12 +102,13 @@ export default function ImportDropzone({
           id={inputId}
           type="file"
           accept={ACCEPT}
+          multiple
           className="sr-only"
           disabled={disabled}
           onChange={async (e) => {
-            const file = e.target.files?.[0];
+            const list = e.target.files;
             e.target.value = "";
-            await validateAndSend(file);
+            await validateAndSend(list);
           }}
         />
         {compact ? (
@@ -105,10 +118,16 @@ export default function ImportDropzone({
         ) : (
           <>
             <p className="text-base text-[var(--text)]">
-              {disabled ? "正在导入…" : "拖拽文件到此处，或点击选择"}
+              {disabled
+                ? "正在导入…"
+                : "拖拽文件到此处，或点击选择（可多选）"}
             </p>
             <p className="mt-2 text-sm text-[var(--text-muted)]">
-              支持 txt / md / epub，最大 {MAX_UPLOAD_BYTES / (1024 * 1024)}MB
+              支持 txt / md / epub · 最大{" "}
+              {MAX_UPLOAD_BYTES / (1024 * 1024)}MB/个
+            </p>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              「书名-01」「书名-02」等同批会自动合并为一本书
             </p>
           </>
         )}

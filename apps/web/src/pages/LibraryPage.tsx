@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import BookCard from "../components/BookCard";
 import ImportDropzone from "../components/ImportDropzone";
-import { ApiError, deleteBook, importBook, listBooks } from "../lib/api";
+import { ApiError, deleteBook, importBooks, listBooks } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 const POLL_INTERVAL_MS = 2000;
@@ -87,18 +87,25 @@ export default function LibraryPage() {
     };
   }, [pollEpoch]);
 
-  async function handleImport(file: File) {
+  async function handleImport(files: File[]) {
     setError(null);
     setImporting(true);
     try {
-      const summary = await importBook(file);
+      const summaries = await importBooks(files);
       setBooks((prev) => {
-        const without = prev.filter((b) => b.id !== summary.id);
-        return [summary, ...without];
+        const ids = new Set(summaries.map((s) => s.id));
+        const without = prev.filter((b) => !ids.has(b.id));
+        return [...summaries, ...without];
       });
       const list = await refreshBooks();
       if (list.some((b) => b.status === "processing")) {
         setPollEpoch((e) => e + 1);
+      }
+      const failed = summaries.filter((s) => s.status === "failed");
+      if (failed.length) {
+        setError(
+          failed.map((s) => `《${s.title}》: ${s.errorMessage ?? "失败"}`).join("；"),
+        );
       }
     } catch (err) {
       setError(errMessage(err, "导入失败"));
@@ -134,7 +141,7 @@ export default function LibraryPage() {
           </span>
           <div className="w-auto min-w-[7rem]">
             <ImportDropzone
-              onFile={handleImport}
+              onFiles={handleImport}
               disabled={importing || loading}
               compact
             />
@@ -183,7 +190,7 @@ export default function LibraryPage() {
               导入第一本书，在雨夜里打开它
             </p>
             <div className="mx-auto max-w-md">
-              <ImportDropzone onFile={handleImport} disabled={importing} />
+              <ImportDropzone onFiles={handleImport} disabled={importing} />
             </div>
           </div>
         ) : (

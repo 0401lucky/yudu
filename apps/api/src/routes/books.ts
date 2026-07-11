@@ -7,7 +7,13 @@ import type {
 } from "@yudu/shared";
 import type { Env } from "../env";
 import { authMiddleware, type AuthVariables } from "../middleware/auth";
-import { deleteBook, importBook, ImportValidationError } from "../services/importBook";
+import {
+  deleteBook,
+  importBook,
+  importBooksBatch,
+  ImportValidationError,
+  type UploadFile,
+} from "../services/importBook";
 import { getObject, getText } from "../services/storage";
 
 type BookRow = {
@@ -40,11 +46,17 @@ export const booksRoutes = new Hono<{
 
 booksRoutes.use("*", authMiddleware);
 
-/** POST /api/books/import — multipart field "file" */
+/**
+ * POST /api/books/import — multipart
+ * - 单文件：字段 `file`
+ * - 多文件：字段 `files`（可多个）或重复的 `file`
+ * 同批内「书名-序号」自动合并为一本书。
+ * 响应：始终为 BookSummary[]（单文件也是长度 1 的数组）。
+ */
 booksRoutes.post("/import", async (c) => {
   let body: Record<string, unknown>;
   try {
-    body = await c.req.parseBody();
+    body = await c.req.parseBody({ all: true });
   } catch {
     return c.json(
       { error: { code: "INVALID_BODY", message: "无法解析 multipart 请求" } },
@@ -52,24 +64,37 @@ booksRoutes.post("/import", async (c) => {
     );
   }
 
-  const file = body["file"];
-  if (!(file instanceof File)) {
+  const collected = collectUploadFiles(body);
+  if (!collected.length) {
     return c.json(
-      { error: { code: "MISSING_FILE", message: "请上传文件字段 file" } },
+      {
+        error: {
+          code: "MISSING_FILE",
+          message: "请上传文件（字段 file 或 files）",
+        },
+      },
       400,
     );
   }
 
-  const bytes = new Uint8Array(await file.arrayBuffer());
   const userId = c.get("userId");
 
   try {
-    const summary = await importBook(c.env, userId, {
-      name: file.name || "upload.bin",
-      bytes,
-    });
-    const status = summary.status === "ready" ? 201 : 200;
-    return c.json(summary, status);
+    const uploads: UploadFile[] = [];
+    for (const f of collected) {
+      uploads.push({
+        name: f.name || "upload.bin",
+        bytes: new Uint8Array(await f.arrayBuffer()),
+      });
+    }
+
+    const summaries =
+      uploads.length === 1
+        ? [await importBook(c.env, userId, uploads[0]!)]
+        : await importBooksBatch(c.env, userId, uploads);
+
+    const allReady = summaries.every((s) => s.status === "ready");
+    return c.json(summaries, allReady ? 201 : 200);
   } catch (err) {
     if (err instanceof ImportValidationError) {
       return c.json(
@@ -80,6 +105,21 @@ booksRoutes.post("/import", async (c) => {
     throw err;
   }
 });
+
+function collectUploadFiles(body: Record<string, unknown>): File[] {
+  const out: File[] = [];
+  const push = (v: unknown) => {
+    if (v instanceof File) out.push(v);
+    else if (Array.isArray(v)) {
+      for (const item of v) {
+        if (item instanceof File) out.push(item);
+      }
+    }
+  };
+  push(body["files"]);
+  push(body["file"]);
+  return out;
+}
 
 /** GET /api/books — 书架列表 */
 booksRoutes.get("/", async (c) => {

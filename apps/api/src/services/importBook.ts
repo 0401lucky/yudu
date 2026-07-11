@@ -1,6 +1,9 @@
 import {
   MAX_UPLOAD_BYTES,
   SUPPORTED_FORMATS,
+  compareBySequence,
+  parseFilenameSeries,
+  seriesGroupKey,
   type BookFormat,
   type BookSummary,
 } from "@yudu/shared";
@@ -8,7 +11,7 @@ import type { Env } from "../env";
 import { parseTxt } from "../parsers/txt";
 import { parseMd } from "../parsers/md";
 import { parseEpub } from "../parsers/epub";
-import type { ParseResult } from "../parsers/types";
+import type { ParseResult, ParsedChapter } from "../parsers/types";
 import { generateCoverSvg } from "./cover";
 import { deletePrefix, putBytes, putText, r2Key } from "./storage";
 
@@ -21,43 +24,106 @@ export class ImportValidationError extends Error {
   }
 }
 
+export type UploadFile = { name: string; bytes: Uint8Array };
+
 /**
- * 导入书籍：校验 → processing → 源文件 → 解析 → 章节 R2 → 封面 → ready。
- * 解析失败时标记 failed 并仍返回 BookSummary（不抛）。
- * 校验失败（扩展名/大小）抛 ImportValidationError。
+ * 单文件导入（兼容旧接口）。
+ * 若文件名匹配「书名-序号」，书名用系列名。
  */
 export async function importBook(
   env: Env,
   userId: string,
-  file: { name: string; bytes: Uint8Array },
+  file: UploadFile,
 ): Promise<BookSummary> {
-  const format = detectFormat(file.name);
-  if (!format) {
-    throw new ImportValidationError(
-      "UNSUPPORTED_FORMAT",
-      "仅支持 txt、md、epub 格式",
-    );
-  }
-  if (format === "pdf") {
-    throw new ImportValidationError(
-      "UNSUPPORTED_FORMAT",
-      "PDF 暂不支持",
-    );
-  }
-  if (file.bytes.byteLength > MAX_UPLOAD_BYTES) {
-    throw new ImportValidationError(
-      "FILE_TOO_LARGE",
-      `文件超过上限 ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB`,
-    );
-  }
-  if (file.bytes.byteLength === 0) {
-    throw new ImportValidationError("EMPTY_FILE", "文件为空");
+  const results = await importBooksBatch(env, userId, [file]);
+  return results[0]!;
+}
+
+/**
+ * 批量导入：按「书名-序号」自动合并为同一本书；独立文件各自成书。
+ */
+export async function importBooksBatch(
+  env: Env,
+  userId: string,
+  files: UploadFile[],
+): Promise<BookSummary[]> {
+  if (!files.length) {
+    throw new ImportValidationError("MISSING_FILE", "请至少上传一个文件");
   }
 
+  // 校验全部文件
+  const validated: { file: UploadFile; format: Exclude<BookFormat, "pdf"> }[] =
+    [];
+  for (const file of files) {
+    const format = detectFormat(file.name);
+    if (!format || format === "pdf") {
+      throw new ImportValidationError(
+        "UNSUPPORTED_FORMAT",
+        `不支持的文件：${file.name}（仅 txt、md、epub）`,
+      );
+    }
+    if (file.bytes.byteLength > MAX_UPLOAD_BYTES) {
+      throw new ImportValidationError(
+        "FILE_TOO_LARGE",
+        `${file.name} 超过上限 ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB`,
+      );
+    }
+    if (file.bytes.byteLength === 0) {
+      throw new ImportValidationError("EMPTY_FILE", `${file.name} 为空`);
+    }
+    validated.push({ file, format });
+  }
+
+  // 分组
+  type Group = {
+    seriesTitle: string;
+    isSequenced: boolean;
+    items: { file: UploadFile; format: Exclude<BookFormat, "pdf"> }[];
+  };
+  const groups = new Map<string, Group>();
+
+  for (const item of validated) {
+    const gk = seriesGroupKey(item.file.name);
+    let g = groups.get(gk.key);
+    if (!g) {
+      g = {
+        seriesTitle: gk.seriesTitle,
+        isSequenced: gk.isSequenced,
+        items: [],
+      };
+      groups.set(gk.key, g);
+    }
+    g.items.push(item);
+  }
+
+  // 每组内排序
+  for (const g of groups.values()) {
+    g.items.sort((a, b) => compareBySequence(a.file.name, b.file.name));
+  }
+
+  const summaries: BookSummary[] = [];
+  for (const g of groups.values()) {
+    summaries.push(await createBookFromGroup(env, userId, g));
+  }
+  return summaries;
+}
+
+async function createBookFromGroup(
+  env: Env,
+  userId: string,
+  group: {
+    seriesTitle: string;
+    isSequenced: boolean;
+    items: { file: UploadFile; format: Exclude<BookFormat, "pdf"> }[];
+  },
+): Promise<BookSummary> {
   const bookId = crypto.randomUUID();
   const now = Date.now();
-  const sourceKey = r2Key.source(userId, bookId, file.name);
-  const fallbackTitle = titleFromFilename(file.name);
+  // 格式：同组优先取第一文件；混合格式时仍允许，以第一为准写入 format 字段
+  const primaryFormat = group.items[0]!.format;
+  const primaryName = group.items[0]!.file.name;
+  const sourceKey = r2Key.source(userId, bookId, primaryName);
+  const bookTitle = group.seriesTitle;
 
   await env.DB.prepare(
     `INSERT INTO books (
@@ -65,39 +131,66 @@ export async function importBook(
        status, error_message, chapter_count, created_at, updated_at
      ) VALUES (?, ?, ?, NULL, ?, NULL, ?, 'processing', NULL, 0, ?, ?)`,
   )
-    .bind(bookId, userId, fallbackTitle, format, sourceKey, now, now)
+    .bind(bookId, userId, bookTitle, primaryFormat, sourceKey, now, now)
     .run();
 
   try {
-    await putBytes(
-      env.BOOKS_BUCKET,
-      sourceKey,
-      file.bytes,
-      contentTypeForFormat(format),
-    );
+    // 存第一个源文件；其余章节文件也按索引存
+    for (let fi = 0; fi < group.items.length; fi++) {
+      const { file, format } = group.items[fi]!;
+      const key =
+        fi === 0
+          ? sourceKey
+          : r2Key.source(userId, bookId, `part-${fi}-${file.name}`);
+      await putBytes(
+        env.BOOKS_BUCKET,
+        key,
+        file.bytes,
+        contentTypeForFormat(format),
+      );
+    }
 
-    const parsed = await parseByFormat(format, file.bytes, file.name);
-    const title = (parsed.title || fallbackTitle).trim() || fallbackTitle;
-    const author = parsed.author?.trim() || null;
+    const allChapters: ParsedChapter[] = [];
+    let author: string | null = null;
+    let cover: ParseResult["cover"] | undefined;
 
-    if (!parsed.chapters.length) {
+    for (const { file, format } of group.items) {
+      const parsed = await parseByFormat(format, file.bytes, file.name);
+      if (parsed.author?.trim() && !author) {
+        author = parsed.author.trim();
+      }
+      if (parsed.cover?.bytes?.byteLength && !cover) {
+        cover = parsed.cover;
+      }
+
+      const parts = parseFilenameSeries(file.name);
+      // 多文件合并时：每个文件的章节依次追加
+      // 若该文件只有一章且标题像文件名，优先用正文标题或「第 N 章」
+      const chapters = normalizeChaptersForMerge(
+        parsed.chapters,
+        parts,
+        group.isSequenced && group.items.length > 1,
+      );
+      allChapters.push(...chapters);
+    }
+
+    if (!allChapters.length) {
       throw new Error("未解析到任何章节");
     }
 
     const chapterInserts: D1PreparedStatement[] = [];
-    for (let i = 0; i < parsed.chapters.length; i++) {
-      const ch = parsed.chapters[i];
+    for (let i = 0; i < allChapters.length; i++) {
+      const ch = allChapters[i]!;
       const key = r2Key.chapter(userId, bookId, i);
       const payload = JSON.stringify({ title: ch.title, text: ch.text });
       await putText(env.BOOKS_BUCKET, key, payload);
 
-      const chapterId = crypto.randomUUID();
       chapterInserts.push(
         env.DB.prepare(
           `INSERT INTO chapters (id, book_id, idx, title, r2_key, char_count)
            VALUES (?, ?, ?, ?, ?, ?)`,
         ).bind(
-          chapterId,
+          crypto.randomUUID(),
           bookId,
           i,
           ch.title,
@@ -107,17 +200,16 @@ export async function importBook(
       );
     }
 
-    // 封面：epub 自带优先，否则生成 SVG
     const coverKey = r2Key.cover(userId, bookId);
-    if (parsed.cover?.bytes?.byteLength) {
+    if (cover?.bytes?.byteLength) {
       await putBytes(
         env.BOOKS_BUCKET,
         coverKey,
-        parsed.cover.bytes,
-        parsed.cover.contentType || "application/octet-stream",
+        cover.bytes,
+        cover.contentType || "application/octet-stream",
       );
     } else {
-      const svg = generateCoverSvg(title, author);
+      const svg = generateCoverSvg(bookTitle, author);
       await putBytes(
         env.BOOKS_BUCKET,
         coverKey,
@@ -136,10 +228,10 @@ export async function importBook(
            chapter_count = ?, updated_at = ?
          WHERE id = ? AND user_id = ?`,
       ).bind(
-        title,
+        bookTitle,
         author,
         coverKey,
-        parsed.chapters.length,
+        allChapters.length,
         readyAt,
         bookId,
         userId,
@@ -148,13 +240,13 @@ export async function importBook(
 
     return {
       id: bookId,
-      title,
+      title: bookTitle,
       author,
-      format,
+      format: primaryFormat,
       coverUrl: `/api/books/${bookId}/cover`,
       status: "ready",
       errorMessage: null,
-      chapterCount: parsed.chapters.length,
+      chapterCount: allChapters.length,
       progressPercent: null,
       updatedAt: readyAt,
     };
@@ -169,14 +261,14 @@ export async function importBook(
         .bind(message.slice(0, 500), failedAt, bookId, userId)
         .run();
     } catch {
-      // 标记失败也失败时仍返回 best-effort 摘要
+      // ignore
     }
 
     return {
       id: bookId,
-      title: fallbackTitle,
+      title: bookTitle,
       author: null,
-      format,
+      format: primaryFormat,
       coverUrl: null,
       status: "failed",
       errorMessage: message.slice(0, 500),
@@ -185,6 +277,45 @@ export async function importBook(
       updatedAt: failedAt,
     };
   }
+}
+
+/**
+ * 合并时润色章节标题：单章且标题≈文件名时，改用「第 N 章」或系列内序号。
+ */
+function normalizeChaptersForMerge(
+  chapters: ParsedChapter[],
+  parts: ReturnType<typeof parseFilenameSeries>,
+  multiFileSeries: boolean,
+): ParsedChapter[] {
+  if (!chapters.length) return chapters;
+
+  if (chapters.length === 1 && multiFileSeries) {
+    const only = chapters[0]!;
+    const stem = parts.basename.replace(/\.[^.]+$/, "");
+    const titleLooksLikeFile =
+      only.title === stem ||
+      only.title === parts.seriesTitle ||
+      only.title === parts.basename;
+    if (titleLooksLikeFile && parts.sequence != null) {
+      return [
+        {
+          title: `第 ${parts.sequence} 章`,
+          text: only.text,
+        },
+      ];
+    }
+  }
+
+  // 单文件但带序号：书名已是系列名；若只有一章且标题是「雨停之前-01」类，尝试保留正文内标题
+  if (chapters.length === 1 && parts.isSequenced && !multiFileSeries) {
+    const only = chapters[0]!;
+    const stem = parts.basename.replace(/\.[^.]+$/, "");
+    if (only.title === stem && parts.sequence != null) {
+      return [{ title: `第 ${parts.sequence} 章`, text: only.text }];
+    }
+  }
+
+  return chapters;
 }
 
 /** 删除书籍：R2 前缀 + D1（chapters/progress 依赖 cascade） */
@@ -217,15 +348,8 @@ function detectFormat(filename: string): BookFormat | null {
   if ((SUPPORTED_FORMATS as readonly string[]).includes(ext)) {
     return ext as BookFormat;
   }
-  // markdown 常见别名
   if (ext === "markdown") return "md";
   return null;
-}
-
-function titleFromFilename(filename: string): string {
-  const base = filename.replace(/^.*[/\\]/, "");
-  const dot = base.lastIndexOf(".");
-  return (dot > 0 ? base.slice(0, dot) : base) || base || "未命名";
 }
 
 function contentTypeForFormat(format: Exclude<BookFormat, "pdf">): string {

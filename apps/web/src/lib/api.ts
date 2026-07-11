@@ -101,13 +101,21 @@ export function listBooks(): Promise<BookSummary[]> {
   return api<BookSummary[]>("/api/books");
 }
 
-export function importBook(file: File): Promise<BookSummary> {
+/** 批量导入；单文件也可。响应始终为 BookSummary[]（同批「书名-序号」会合并） */
+export function importBooks(files: File[]): Promise<BookSummary[]> {
   const form = new FormData();
-  form.append("file", file);
-  return api<BookSummary>("/api/books/import", {
+  for (const file of files) {
+    form.append("files", file);
+  }
+  return api<BookSummary[]>("/api/books/import", {
     method: "POST",
     body: form,
   });
+}
+
+/** @deprecated 使用 importBooks */
+export function importBook(file: File): Promise<BookSummary[]> {
+  return importBooks([file]);
 }
 
 export function deleteBook(bookId: string): Promise<void> {
