@@ -1,1 +1,2 @@
 SESSION_SECRET=dev-only-change-me-to-long-random
+WEB_ORIGIN=http://127.0.0.1:5173

@@ -12,3 +12,7 @@ migrations_dir = "migrations"
 [[r2_buckets]]
 binding = "BOOKS_BUCKET"
 bucket_name = "yudu-books"
+
+# 生产请改为真实前端 Origin；本地见 .dev.vars
+# [vars]
+# WEB_ORIGIN = "https://your-app.pages.dev"
