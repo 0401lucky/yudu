@@ -1,14 +1,17 @@
+import type { UserPreferences } from "@yudu/shared";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useThemePrefs } from "../components/ThemeProvider";
 import { ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
-/** 设置占位页（完整偏好 UI 在后续任务） */
 export default function SettingsPage() {
   const { user, logout } = useAuth();
+  const { prefs, setPrefs, loading } = useThemePrefs();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   async function onLogout() {
     setError(null);
@@ -17,15 +20,21 @@ export default function SettingsPage() {
       await logout();
       navigate("/login", { replace: true });
     } catch (err) {
-      const message =
-        err instanceof ApiError
-          ? err.message
-          : err instanceof Error
-            ? err.message
-            : "登出失败";
-      setError(message);
+      setError(errMessage(err, "登出失败"));
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function update(partial: Partial<UserPreferences>) {
+    setError(null);
+    setSaving(true);
+    try {
+      await setPrefs(partial);
+    } catch (err) {
+      setError(errMessage(err, "保存失败"));
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -35,7 +44,7 @@ export default function SettingsPage() {
         <h1 className="text-xl font-semibold text-[var(--text)]">设置</h1>
         <Link
           to="/library"
-          className="text-sm text-[var(--accent)] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] rounded"
+          className="rounded text-sm text-[var(--accent)] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
         >
           返回书架
         </Link>
@@ -47,11 +56,84 @@ export default function SettingsPage() {
           <p className="mt-2 text-[var(--text)]">{user?.email ?? "—"}</p>
         </div>
 
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5">
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5 space-y-4">
           <h2 className="text-sm text-[var(--text-muted)]">阅读偏好</h2>
-          <p className="mt-2 text-sm text-[var(--text-muted)]">
-            主题、字号等设置将在后续版本提供。
-          </p>
+          {loading ? (
+            <p className="text-sm text-[var(--text-muted)]">加载中…</p>
+          ) : (
+            <>
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="text-[var(--text-muted)]">主题</span>
+                <select
+                  value={prefs.theme}
+                  disabled={saving}
+                  onChange={(e) =>
+                    void update({
+                      theme: e.target.value as UserPreferences["theme"],
+                    })
+                  }
+                  className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[var(--text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                >
+                  <option value="night">雨夜（深色）</option>
+                  <option value="paper">纸页（浅色）</option>
+                </select>
+              </label>
+
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="text-[var(--text-muted)]">
+                  字号：{prefs.fontSize}px
+                </span>
+                <input
+                  type="range"
+                  min={14}
+                  max={28}
+                  value={prefs.fontSize}
+                  disabled={saving}
+                  onChange={(e) =>
+                    void update({ fontSize: Number(e.target.value) })
+                  }
+                  className="w-full accent-[var(--accent)]"
+                />
+              </label>
+
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="text-[var(--text-muted)]">
+                  行距：{prefs.lineHeight.toFixed(2)}
+                </span>
+                <input
+                  type="range"
+                  min={1.4}
+                  max={2.2}
+                  step={0.05}
+                  value={prefs.lineHeight}
+                  disabled={saving}
+                  onChange={(e) =>
+                    void update({ lineHeight: Number(e.target.value) })
+                  }
+                  className="w-full accent-[var(--accent)]"
+                />
+              </label>
+
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="text-[var(--text-muted)]">页边距</span>
+                <select
+                  value={prefs.pageMargin}
+                  disabled={saving}
+                  onChange={(e) =>
+                    void update({
+                      pageMargin: e.target
+                        .value as UserPreferences["pageMargin"],
+                    })
+                  }
+                  className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[var(--text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                >
+                  <option value="compact">紧凑</option>
+                  <option value="normal">适中</option>
+                  <option value="relaxed">宽松</option>
+                </select>
+              </label>
+            </>
+          )}
         </div>
 
         {error ? (
@@ -71,4 +153,10 @@ export default function SettingsPage() {
       </section>
     </main>
   );
+}
+
+function errMessage(err: unknown, fallback: string): string {
+  if (err instanceof ApiError) return err.message;
+  if (err instanceof Error) return err.message;
+  return fallback;
 }
