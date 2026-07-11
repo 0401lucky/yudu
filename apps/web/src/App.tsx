@@ -3,6 +3,7 @@ import { useAuth } from "./lib/auth";
 import LandingPage from "./pages/LandingPage";
 import LibraryPage from "./pages/LibraryPage";
 import LoginPage from "./pages/LoginPage";
+import ReaderPage from "./pages/ReaderPage";
 import RegisterPage from "./pages/RegisterPage";
 import SettingsPage from "./pages/SettingsPage";
 
@@ -33,6 +34,7 @@ export default function App() {
       <Route element={<RequireAuth />}>
         <Route path="/library" element={<LibraryPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/read/:bookId" element={<ReaderPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -1,38 +1,210 @@
+import type { BookSummary } from "@yudu/shared";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import BookCard from "../components/BookCard";
+import ImportDropzone from "../components/ImportDropzone";
+import { ApiError, deleteBook, importBook, listBooks } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
-/** 书架占位页（完整书架 UI 在后续任务） */
+const POLL_INTERVAL_MS = 2000;
+const POLL_MAX_TIMES = 60;
+
 export default function LibraryPage() {
   const { user } = useAuth();
+  const [books, setBooks] = useState<BookSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [importing, setImporting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  /** 递增以重启 processing 轮询 */
+  const [pollEpoch, setPollEpoch] = useState(0);
+  const pollEpochRef = useRef(0);
+
+  const refreshBooks = useCallback(async (): Promise<BookSummary[]> => {
+    const list = await listBooks();
+    setBooks(list);
+    return list;
+  }, []);
+
+  // 初次加载
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const list = await listBooks();
+        if (cancelled) return;
+        setBooks(list);
+        if (list.some((b) => b.status === "processing")) {
+          setPollEpoch((e) => e + 1);
+        }
+      } catch (err) {
+        if (cancelled) return;
+        setError(errMessage(err, "加载书架失败"));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // processing 轮询：2s 间隔，最多 60 次
+  useEffect(() => {
+    if (pollEpoch === 0) return;
+    pollEpochRef.current = pollEpoch;
+    let cancelled = false;
+    let times = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const tick = () => {
+      if (cancelled || times >= POLL_MAX_TIMES) return;
+      timer = setTimeout(async () => {
+        if (cancelled || pollEpochRef.current !== pollEpoch) return;
+        times += 1;
+        try {
+          const list = await listBooks();
+          if (cancelled || pollEpochRef.current !== pollEpoch) return;
+          setBooks(list);
+          if (list.some((b) => b.status === "processing")) {
+            tick();
+          }
+        } catch {
+          if (!cancelled && pollEpochRef.current === pollEpoch) {
+            tick();
+          }
+        }
+      }, POLL_INTERVAL_MS);
+    };
+
+    tick();
+
+    return () => {
+      cancelled = true;
+      if (timer != null) clearTimeout(timer);
+    };
+  }, [pollEpoch]);
+
+  async function handleImport(file: File) {
+    setError(null);
+    setImporting(true);
+    try {
+      const summary = await importBook(file);
+      setBooks((prev) => {
+        const without = prev.filter((b) => b.id !== summary.id);
+        return [summary, ...without];
+      });
+      const list = await refreshBooks();
+      if (list.some((b) => b.status === "processing")) {
+        setPollEpoch((e) => e + 1);
+      }
+    } catch (err) {
+      setError(errMessage(err, "导入失败"));
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  async function handleDelete(bookId: string) {
+    setError(null);
+    setDeletingId(bookId);
+    try {
+      await deleteBook(bookId);
+      setBooks((prev) => prev.filter((b) => b.id !== bookId));
+    } catch (err) {
+      setError(errMessage(err, "删除失败"));
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  const empty = !loading && books.length === 0;
 
   return (
     <main className="min-h-full p-6 md:p-10">
-      <header className="mx-auto flex max-w-5xl items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
+      <header className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
         <h1 className="text-xl font-semibold tracking-wide text-[var(--accent)]">
           雨读
         </h1>
-        <nav className="flex items-center gap-4 text-sm">
+        <nav className="flex flex-wrap items-center gap-3 text-sm">
           <span className="hidden sm:inline text-[var(--text-muted)]">
             {user?.email}
           </span>
+          <div className="w-auto min-w-[7rem]">
+            <ImportDropzone
+              onFile={handleImport}
+              disabled={importing || loading}
+              compact
+            />
+          </div>
           <Link
             to="/settings"
-            className="text-[var(--text)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] rounded"
+            className="rounded text-[var(--text)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
           >
             设置
           </Link>
         </nav>
       </header>
 
-      <section className="mx-auto mt-12 max-w-5xl text-center">
-        <h2 className="text-2xl font-medium text-[var(--text)]">我的书架</h2>
-        <p className="mt-3 text-[var(--text-muted)]">
-          书架功能即将就绪。导入、列表与进度同步会在后续版本出现在这里。
-        </p>
-        <div className="mt-8 rounded-xl border border-dashed border-[var(--border)] bg-[var(--bg-elevated)] px-6 py-16">
-          <p className="text-[var(--text-muted)]">暂无书籍</p>
+      <section className="mx-auto mt-8 max-w-6xl">
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-2xl font-medium text-[var(--text)]">我的书架</h2>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">
+              {loading
+                ? "加载中…"
+                : books.length > 0
+                  ? `共 ${books.length} 本`
+                  : "暂无书籍"}
+            </p>
+          </div>
         </div>
+
+        {error ? (
+          <p className="mb-4 text-sm text-red-400" role="alert">
+            {error}
+          </p>
+        ) : null}
+
+        {loading ? (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="aspect-[2/3] animate-pulse rounded-lg bg-[var(--bg-elevated)]"
+              />
+            ))}
+          </div>
+        ) : empty ? (
+          <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--bg-elevated)] px-6 py-12">
+            <p className="mb-6 text-center text-lg text-[var(--text)]">
+              导入第一本书，在雨夜里打开它
+            </p>
+            <div className="mx-auto max-w-md">
+              <ImportDropzone onFile={handleImport} disabled={importing} />
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {books.map((book) => (
+              <BookCard
+                key={book.id}
+                book={book}
+                onDelete={handleDelete}
+                deleting={deletingId === book.id}
+              />
+            ))}
+          </div>
+        )}
       </section>
     </main>
   );
+}
+
+function errMessage(err: unknown, fallback: string): string {
+  if (err instanceof ApiError) return err.message;
+  if (err instanceof Error) return err.message;
+  return fallback;
 }

@@ -1,4 +1,4 @@
-import type { ApiErrorBody, UserPublic } from "@yudu/shared";
+import type { ApiErrorBody, BookSummary, UserPublic } from "@yudu/shared";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -14,7 +14,12 @@ export class ApiError extends Error {
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
-  if (init?.body != null && !headers.has("Content-Type")) {
+  // FormData 需由浏览器自动设置 multipart boundary，不可强行 application/json
+  if (
+    init?.body != null &&
+    !headers.has("Content-Type") &&
+    !(init.body instanceof FormData)
+  ) {
     headers.set("Content-Type", "application/json");
   }
 
@@ -72,4 +77,23 @@ export function register(email: string, password: string): Promise<UserPublic> {
 
 export function logout(): Promise<void> {
   return api<void>("/api/auth/logout", { method: "POST" });
+}
+
+export function listBooks(): Promise<BookSummary[]> {
+  return api<BookSummary[]>("/api/books");
+}
+
+export function importBook(file: File): Promise<BookSummary> {
+  const form = new FormData();
+  form.append("file", file);
+  return api<BookSummary>("/api/books/import", {
+    method: "POST",
+    body: form,
+  });
+}
+
+export function deleteBook(bookId: string): Promise<void> {
+  return api<void>(`/api/books/${encodeURIComponent(bookId)}`, {
+    method: "DELETE",
+  });
 }
