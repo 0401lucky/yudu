@@ -4,8 +4,15 @@ export interface ParsedChapter {
   text: string;
 }
 
+export interface ParseCover {
+  bytes: Uint8Array;
+  contentType: string;
+}
+
 export interface ParseResult {
   title: string;
   author: string | null;
   chapters: ParsedChapter[];
+  /** EPUB 等格式可选封面 */
+  cover?: ParseCover;
 }
