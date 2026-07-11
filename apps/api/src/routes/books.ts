@@ -9,7 +9,6 @@ import type { Env } from "../env";
 import { authMiddleware, type AuthVariables } from "../middleware/auth";
 import {
   deleteBook,
-  importBook,
   importBooksBatch,
   ImportValidationError,
   type UploadFile,
@@ -52,11 +51,13 @@ booksRoutes.use("*", authMiddleware);
  * - 多文件：字段 `files`（可多个）或重复的 `file`
  * 同批内「书名-序号」自动合并为一本书。
  * 响应：始终为 BookSummary[]（单文件也是长度 1 的数组）。
+ *
+ * 注意：不要用 parseBody({ all: true })，在 wrangler/miniflare 下会抛错。
  */
 booksRoutes.post("/import", async (c) => {
-  let body: Record<string, unknown>;
+  let form: FormData;
   try {
-    body = await c.req.parseBody({ all: true });
+    form = await c.req.formData();
   } catch {
     return c.json(
       { error: { code: "INVALID_BODY", message: "无法解析 multipart 请求" } },
@@ -64,7 +65,7 @@ booksRoutes.post("/import", async (c) => {
     );
   }
 
-  const collected = collectUploadFiles(body);
+  const collected = collectUploadFilesFromFormData(form);
   if (!collected.length) {
     return c.json(
       {
@@ -88,10 +89,7 @@ booksRoutes.post("/import", async (c) => {
       });
     }
 
-    const summaries =
-      uploads.length === 1
-        ? [await importBook(c.env, userId, uploads[0]!)]
-        : await importBooksBatch(c.env, userId, uploads);
+    const summaries = await importBooksBatch(c.env, userId, uploads);
 
     const allReady = summaries.every((s) => s.status === "ready");
     return c.json(summaries, allReady ? 201 : 200);
@@ -106,19 +104,28 @@ booksRoutes.post("/import", async (c) => {
   }
 });
 
-function collectUploadFiles(body: Record<string, unknown>): File[] {
+/** 从 FormData 收集 file / files 字段（兼容单文件与多文件） */
+function collectUploadFilesFromFormData(form: FormData): File[] {
   const out: File[] = [];
-  const push = (v: unknown) => {
-    if (v instanceof File) out.push(v);
-    else if (Array.isArray(v)) {
-      for (const item of v) {
-        if (item instanceof File) out.push(item);
-      }
+  for (const key of ["files", "file"] as const) {
+    // getAll 在 Workers 上对重复字段更可靠
+    const values = form.getAll(key);
+    for (const v of values) {
+      if (isUploadFile(v)) out.push(v);
     }
-  };
-  push(body["files"]);
-  push(body["file"]);
+  }
   return out;
+}
+
+function isUploadFile(v: FormDataEntryValue): v is File {
+  if (typeof v === "string") return false;
+  // 不用 instanceof File：跨 realm 可能失败；Blob + name 即可
+  return (
+    typeof Blob !== "undefined" &&
+    v instanceof Blob &&
+    typeof (v as File).name === "string" &&
+    typeof v.arrayBuffer === "function"
+  );
 }
 
 /** GET /api/books — 书架列表 */

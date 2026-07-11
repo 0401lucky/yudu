@@ -102,15 +102,26 @@ export function listBooks(): Promise<BookSummary[]> {
 }
 
 /** 批量导入；单文件也可。响应始终为 BookSummary[]（同批「书名-序号」会合并） */
-export function importBooks(files: File[]): Promise<BookSummary[]> {
+export async function importBooks(files: File[]): Promise<BookSummary[]> {
+  if (!files.length) {
+    throw new ApiError(400, "MISSING_FILE", "请选择文件");
+  }
   const form = new FormData();
   for (const file of files) {
+    // 同时带 files 与 file，兼容旧服务端
     form.append("files", file);
   }
-  return api<BookSummary[]>("/api/books/import", {
+  // 单文件时再带一份 file，兼容性更好
+  if (files.length === 1) {
+    form.append("file", files[0]!);
+  }
+  const data = await api<BookSummary[] | BookSummary>("/api/books/import", {
     method: "POST",
     body: form,
   });
+  if (Array.isArray(data)) return data;
+  if (data && typeof data === "object" && "id" in data) return [data];
+  throw new ApiError(500, "INVALID_RESPONSE", "导入响应格式异常");
 }
 
 /** @deprecated 使用 importBooks */

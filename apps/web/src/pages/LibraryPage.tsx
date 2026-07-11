@@ -92,6 +92,10 @@ export default function LibraryPage() {
     setImporting(true);
     try {
       const summaries = await importBooks(files);
+      if (!summaries.length) {
+        setError("导入完成但没有返回书籍，请重试");
+        return;
+      }
       setBooks((prev) => {
         const ids = new Set(summaries.map((s) => s.id));
         const without = prev.filter((b) => !ids.has(b.id));
@@ -102,10 +106,16 @@ export default function LibraryPage() {
         setPollEpoch((e) => e + 1);
       }
       const failed = summaries.filter((s) => s.status === "failed");
+      const ready = summaries.filter((s) => s.status === "ready");
       if (failed.length) {
         setError(
-          failed.map((s) => `《${s.title}》: ${s.errorMessage ?? "失败"}`).join("；"),
+          failed
+            .map((s) => `《${s.title}》: ${s.errorMessage ?? "失败"}`)
+            .join("；"),
         );
+      } else if (ready.length) {
+        // 短暂成功提示（合并时本书数可能少于文件数）
+        setError(null);
       }
     } catch (err) {
       setError(errMessage(err, "导入失败"));
