@@ -61,75 +61,49 @@ pnpm test
 pnpm typecheck
 ```
 
-## 生产部署（拓扑 A：分域 + CORS）
+## 线上地址
 
-API 与前端可不同子域：例如 `api.example.com` + `read.example.com`。Cookie 跨站时需后续加强 `SameSite`/域名策略；**同主域子域**更省心。
+**雨读：** https://yudu.jiezhi858.workers.dev  
+
+（API 与前端同 Worker 同源部署，Cookie 与 `/api` 均在同一域名。）
+
+## 生产部署（Workers + Assets 同源）
 
 ### 1. 登录 Cloudflare
 
 ```bash
 pnpm exec wrangler login
-pnpm exec wrangler whoami
+pnpm --filter @yudu/api exec wrangler whoami
 ```
 
-### 2. 创建 D1 与 R2
+### 2. D1 与 R2
+
+- D1：账号上限 10 个库时，可复用空库（当前配置 `novel-reading-platform-db`）
+- R2：`yudu-books`（`wrangler r2 bucket create yudu-books`）
+
+在 `apps/api/wrangler.toml` 填写 `database_id` 与 `bucket_name`。
+
+### 3. 迁移与密钥
 
 ```bash
 cd apps/api
-pnpm exec wrangler d1 create yudu
-pnpm exec wrangler r2 bucket create yudu-books
+pnpm exec wrangler d1 migrations apply novel-reading-platform-db --remote
+# 将随机字符串通过 stdin 写入
+echo "你的长随机串" | pnpm exec wrangler secret put SESSION_SECRET
 ```
 
-把输出的 `database_id` 填入 `apps/api/wrangler.toml` 的 `database_id`。
-
-### 3. 远程迁移与密钥
+### 4. 构建前端并部署
 
 ```bash
-pnpm exec wrangler d1 migrations apply yudu --remote
-pnpm exec wrangler secret put SESSION_SECRET
-# 可选：在 Dashboard 或 vars 设置 WEB_ORIGIN=https://你的前端域名
-```
-
-在 `wrangler.toml` 增加（或使用 Dashboard）：
-
-```toml
-[vars]
-WEB_ORIGIN = "https://你的-pages-域名.pages.dev"
-```
-
-### 4. 部署 API
-
-```bash
+# 仓库根目录
+pnpm --filter @yudu/web build
 cd apps/api
 pnpm exec wrangler deploy
 ```
 
-记下 Worker 公网 URL。
+部署后访问 `https://yudu.<子域>.workers.dev`。
 
-### 5. 部署前端（Pages）
-
-构建：
-
-```bash
-cd apps/web
-# 若前后端不同源，构建前设置：
-# set VITE_API_BASE=https://yudu-api.xxx.workers.dev
-pnpm build
-```
-
-当前前端默认请求同源 `/api/*`（开发靠 Vite 代理）。生产若分域，需在 `apps/web` 增加 `VITE_API_BASE` 前缀支持（见下）。
-
-**推荐同域路径：** 在 Cloudflare 将 `example.com/api/*` 路由到 Worker，Pages 只托管静态，前端保持相对路径 `/api`。
-
-Pages 上传 `apps/web/dist`，或连接 Git 仓库构建命令：
-
-```
-pnpm install && pnpm --filter @yudu/web build
-```
-
-输出目录：`apps/web/dist`。
-
-### 6. 验收清单
+### 5. 验收清单
 
 - [ ] 注册 / 登录 / 登出
 - [ ] 导入 txt、md、epub
@@ -143,9 +117,10 @@ pnpm install && pnpm --filter @yudu/web build
 | 名称 | 位置 | 说明 |
 |------|------|------|
 | `SESSION_SECRET` | Worker Secret | 会话 HMAC |
-| `WEB_ORIGIN` | Worker vars | 允许的前端 Origin（CORS） |
+| `WEB_ORIGIN` | Worker vars（可选） | 分域 CORS 时用 |
 | `DB` | D1 binding | 元数据 |
 | `BOOKS_BUCKET` | R2 binding | 章节与封面 |
+| `ASSETS` | Workers Assets | 前端静态资源 |
 
 ## 许可
 

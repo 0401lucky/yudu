@@ -31,4 +31,21 @@ app.route("/api/books", booksRoutes);
 app.route("/api/progress", progressRoutes);
 app.route("/api/preferences", preferencesRoutes);
 
+/**
+ * 非 /api 请求交给 Workers Assets（SPA）。
+ * run_worker_first=true 时必须显式回退，否则前端 404。
+ */
+app.all("*", async (c) => {
+  if (c.req.path.startsWith("/api")) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "接口不存在" } },
+      404,
+    );
+  }
+  if (!c.env.ASSETS) {
+    return c.text("静态资源未配置", 500);
+  }
+  return c.env.ASSETS.fetch(c.req.raw);
+});
+
 export default app;

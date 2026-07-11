@@ -1,18 +1,23 @@
-name = "yudu-api"
+name = "yudu"
 main = "src/index.ts"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
+# 前端构建产物（pnpm --filter @yudu/web build 后）与 API 同域
+[assets]
+directory = "../web/dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+# 先走 Worker，非 /api 再回退到静态资源
+run_worker_first = true
+
+# 账号 D1 已满 10 个，复用空库 novel-reading-platform-db
 [[d1_databases]]
 binding = "DB"
-database_name = "yudu"
-database_id = "local-dev-placeholder"
+database_name = "novel-reading-platform-db"
+database_id = "28045efc-7416-4bcc-b93d-e4b80a8c4ea7"
 migrations_dir = "migrations"
 
 [[r2_buckets]]
 binding = "BOOKS_BUCKET"
 bucket_name = "yudu-books"
-
-# 生产请改为真实前端 Origin；本地见 .dev.vars
-# [vars]
-# WEB_ORIGIN = "https://your-app.pages.dev"
