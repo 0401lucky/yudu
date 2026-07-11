@@ -14,9 +14,9 @@ export default function LibraryPage() {
   const [books, setBooks] = useState<BookSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
+  const [importStatus, setImportStatus] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  /** 递增以重启 processing 轮询 */
   const [pollEpoch, setPollEpoch] = useState(0);
   const pollEpochRef = useRef(0);
 
@@ -26,7 +26,6 @@ export default function LibraryPage() {
     return list;
   }, []);
 
-  // 初次加载
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -51,7 +50,6 @@ export default function LibraryPage() {
     };
   }, []);
 
-  // processing 轮询：2s 间隔，最多 60 次
   useEffect(() => {
     if (pollEpoch === 0) return;
     pollEpochRef.current = pollEpoch;
@@ -87,42 +85,56 @@ export default function LibraryPage() {
     };
   }, [pollEpoch]);
 
-  async function handleImport(files: File[]) {
-    setError(null);
-    setImporting(true);
-    try {
-      const summaries = await importBooks(files);
-      if (!summaries.length) {
-        setError("导入完成但没有返回书籍，请重试");
-        return;
-      }
-      setBooks((prev) => {
-        const ids = new Set(summaries.map((s) => s.id));
-        const without = prev.filter((b) => !ids.has(b.id));
-        return [...summaries, ...without];
-      });
-      const list = await refreshBooks();
-      if (list.some((b) => b.status === "processing")) {
-        setPollEpoch((e) => e + 1);
-      }
-      const failed = summaries.filter((s) => s.status === "failed");
-      const ready = summaries.filter((s) => s.status === "ready");
-      if (failed.length) {
-        setError(
-          failed
-            .map((s) => `《${s.title}》: ${s.errorMessage ?? "失败"}`)
-            .join("；"),
+  const handleImport = useCallback(
+    async (files: File[]) => {
+      setError(null);
+      setImportStatus(`正在上传 ${files.length} 个文件…`);
+      setImporting(true);
+      try {
+        console.info(
+          "[雨读] 开始导入",
+          files.map((f) => `${f.name}(${f.size})`),
         );
-      } else if (ready.length) {
-        // 短暂成功提示（合并时本书数可能少于文件数）
-        setError(null);
+        const summaries = await importBooks(files);
+        console.info("[雨读] 导入结果", summaries);
+        if (!summaries.length) {
+          setError("导入完成但没有返回书籍，请重试");
+          setImportStatus(null);
+          return;
+        }
+        setBooks((prev) => {
+          const ids = new Set(summaries.map((s) => s.id));
+          const without = prev.filter((b) => !ids.has(b.id));
+          return [...summaries, ...without];
+        });
+        const list = await refreshBooks();
+        if (list.some((b) => b.status === "processing")) {
+          setPollEpoch((e) => e + 1);
+        }
+        const failed = summaries.filter((s) => s.status === "failed");
+        const ready = summaries.filter((s) => s.status === "ready");
+        if (failed.length) {
+          setError(
+            failed
+              .map((s) => `《${s.title}》: ${s.errorMessage ?? "失败"}`)
+              .join("；"),
+          );
+          setImportStatus(null);
+        } else {
+          setError(null);
+          const names = ready.map((s) => `《${s.title}》(${s.chapterCount}章)`);
+          setImportStatus(`导入成功：${names.join("、")}`);
+        }
+      } catch (err) {
+        console.error("[雨读] 导入失败", err);
+        setImportStatus(null);
+        setError(errMessage(err, "导入失败"));
+      } finally {
+        setImporting(false);
       }
-    } catch (err) {
-      setError(errMessage(err, "导入失败"));
-    } finally {
-      setImporting(false);
-    }
-  }
+    },
+    [refreshBooks],
+  );
 
   async function handleDelete(bookId: string) {
     setError(null);
@@ -138,6 +150,7 @@ export default function LibraryPage() {
   }
 
   const empty = !loading && books.length === 0;
+  const importDisabled = importing; // 不再用 loading 锁导入按钮，避免「一直点不了」
 
   return (
     <main className="min-h-full p-6 md:p-10">
@@ -149,13 +162,14 @@ export default function LibraryPage() {
           <span className="hidden sm:inline text-[var(--text-muted)]">
             {user?.email}
           </span>
-          <div className="w-auto min-w-[7rem]">
-            <ImportDropzone
-              onFiles={handleImport}
-              disabled={importing || loading}
-              compact
-            />
-          </div>
+          <ImportDropzone
+            onFiles={handleImport}
+            disabled={importDisabled}
+            compact
+            onLocalError={(msg) => {
+              if (msg) setError(msg);
+            }}
+          />
           <Link
             to="/settings"
             className="rounded text-[var(--text)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
@@ -180,8 +194,20 @@ export default function LibraryPage() {
         </div>
 
         {error ? (
-          <p className="mb-4 text-sm text-red-400" role="alert">
+          <p
+            className="mb-4 rounded-lg border border-red-500/40 bg-red-950/20 px-3 py-2 text-sm text-red-400"
+            role="alert"
+          >
             {error}
+          </p>
+        ) : null}
+
+        {importStatus ? (
+          <p
+            className="mb-4 rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-2 text-sm text-[var(--accent)]"
+            role="status"
+          >
+            {importStatus}
           </p>
         ) : null}
 
@@ -200,7 +226,13 @@ export default function LibraryPage() {
               导入第一本书，在雨夜里打开它
             </p>
             <div className="mx-auto max-w-md">
-              <ImportDropzone onFiles={handleImport} disabled={importing} />
+              <ImportDropzone
+                onFiles={handleImport}
+                disabled={importDisabled}
+                onLocalError={(msg) => {
+                  if (msg) setError(msg);
+                }}
+              />
             </div>
           </div>
         ) : (

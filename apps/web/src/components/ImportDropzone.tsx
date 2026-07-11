@@ -1,64 +1,108 @@
 import { MAX_UPLOAD_BYTES, SUPPORTED_FORMATS } from "@yudu/shared";
-import { useCallback, useId, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
-const ACCEPT = SUPPORTED_FORMATS.map((f) => `.${f}`).join(",");
+const ACCEPT = ".txt,.md,.markdown,.epub,text/plain,text/markdown,application/epub+zip";
 
 interface ImportDropzoneProps {
   /** 支持多文件；同批「书名-序号」会在服务端合并 */
   onFiles: (files: File[]) => void | Promise<void>;
   disabled?: boolean;
   compact?: boolean;
+  /** 校验/本地错误回传页面（避免小按钮下错误看不见） */
+  onLocalError?: (message: string | null) => void;
 }
 
 function isSupportedName(name: string): boolean {
   const lower = name.toLowerCase();
-  return SUPPORTED_FORMATS.some((ext) => lower.endsWith(`.${ext}`));
+  return (
+    SUPPORTED_FORMATS.some((ext) => lower.endsWith(`.${ext}`)) ||
+    lower.endsWith(".markdown")
+  );
 }
 
 export default function ImportDropzone({
   onFiles,
   disabled,
   compact,
+  onLocalError,
 }: ImportDropzoneProps) {
-  const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
-  const [localError, setLocalError] = useState<string | null>(null);
+  const [hint, setHint] = useState<string | null>(null);
+
+  const reportError = useCallback(
+    (msg: string | null) => {
+      setHint(msg);
+      onLocalError?.(msg);
+    },
+    [onLocalError],
+  );
 
   const validateAndSend = useCallback(
     async (list: FileList | File[] | null | undefined) => {
-      setLocalError(null);
-      if (!list || list.length === 0) return;
-
-      const files = Array.from(list);
-      const accepted: File[] = [];
-      for (const file of files) {
-        if (!isSupportedName(file.name)) {
-          setLocalError(`跳过不支持的格式：${file.name}（仅 txt / md / epub）`);
-          continue;
-        }
-        if (file.size > MAX_UPLOAD_BYTES) {
-          setLocalError(
-            `${file.name} 超过上限 ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB`,
-          );
-          continue;
-        }
-        if (file.size === 0) {
-          setLocalError(`${file.name} 为空`);
-          continue;
-        }
-        accepted.push(file);
-      }
-
-      if (!accepted.length) {
-        setLocalError((prev) => prev ?? "没有可导入的文件");
+      reportError(null);
+      if (!list || list.length === 0) {
+        reportError("未选择任何文件");
         return;
       }
 
-      await onFiles(accepted);
+      try {
+        const files = Array.from(list);
+        const accepted: File[] = [];
+        const rejected: string[] = [];
+
+        for (const file of files) {
+          if (!isSupportedName(file.name)) {
+            rejected.push(`${file.name}（格式不支持）`);
+            continue;
+          }
+          if (file.size > MAX_UPLOAD_BYTES) {
+            rejected.push(
+              `${file.name}（超过 ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB）`,
+            );
+            continue;
+          }
+          if (file.size === 0) {
+            rejected.push(`${file.name}（空文件）`);
+            continue;
+          }
+          accepted.push(file);
+        }
+
+        if (!accepted.length) {
+          reportError(
+            rejected.length
+              ? `无法导入：${rejected.join("；")}`
+              : "没有可导入的文件（请选 txt / md / epub）",
+          );
+          return;
+        }
+
+        if (rejected.length) {
+          reportError(`部分已跳过：${rejected.join("；")}。正在上传其余文件…`);
+        } else {
+          reportError(null);
+          setHint(`正在导入 ${accepted.length} 个文件…`);
+        }
+
+        await onFiles(accepted);
+        setHint(null);
+      } catch (err) {
+        const msg =
+          err instanceof Error ? err.message : "选择文件后处理失败";
+        reportError(msg);
+        console.error("[ImportDropzone]", err);
+      }
     },
-    [onFiles],
+    [onFiles, reportError],
   );
+
+  function openPicker() {
+    if (disabled) return;
+    // 重置 value，保证连续选同一文件也会触发 change
+    if (inputRef.current) inputRef.current.value = "";
+    inputRef.current?.click();
+  }
 
   function onDragOver(e: React.DragEvent) {
     e.preventDefault();
@@ -81,60 +125,64 @@ export default function ImportDropzone({
   }
 
   return (
-    <div className={compact ? "" : "w-full"}>
-      <label
-        htmlFor={inputId}
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        onDrop={onDrop}
-        className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed transition-colors focus-within:ring-2 focus-within:ring-[var(--accent)] ${
-          compact
-            ? "min-h-[44px] border-[var(--border)] bg-[var(--bg-elevated)] px-4 py-2 text-sm"
-            : "min-h-[160px] border-[var(--border)] bg-[var(--bg-elevated)] px-6 py-10"
-        } ${
-          dragging
-            ? "border-[var(--accent)] bg-[var(--accent)]/10"
-            : "hover:border-[var(--accent)]/60"
-        } ${disabled ? "pointer-events-none opacity-60" : ""}`}
-      >
-        <input
-          ref={inputRef}
-          id={inputId}
-          type="file"
-          accept={ACCEPT}
-          multiple
-          className="sr-only"
+    <div className={compact ? "relative" : "w-full"}>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={ACCEPT}
+        multiple
+        className="hidden"
+        disabled={disabled}
+        onChange={(e) => {
+          const list = e.target.files;
+          void validateAndSend(list);
+        }}
+      />
+
+      {compact ? (
+        <button
+          type="button"
           disabled={disabled}
-          onChange={async (e) => {
-            const list = e.target.files;
-            e.target.value = "";
-            await validateAndSend(list);
-          }}
-        />
-        {compact ? (
-          <span className="text-[var(--accent)]">
-            {disabled ? "导入中…" : "导入书籍"}
-          </span>
-        ) : (
-          <>
-            <p className="text-base text-[var(--text)]">
-              {disabled
-                ? "正在导入…"
-                : "拖拽文件到此处，或点击选择（可多选）"}
-            </p>
-            <p className="mt-2 text-sm text-[var(--text-muted)]">
-              支持 txt / md / epub · 最大{" "}
-              {MAX_UPLOAD_BYTES / (1024 * 1024)}MB/个
-            </p>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              「书名-01」「书名-02」等同批会自动合并为一本书
-            </p>
-          </>
-        )}
-      </label>
-      {localError ? (
-        <p className="mt-2 text-sm text-red-400" role="alert">
-          {localError}
+          onClick={openPicker}
+          className="min-h-[44px] rounded-lg border border-dashed border-[var(--border)] bg-[var(--bg-elevated)] px-4 py-2 text-sm text-[var(--accent)] hover:border-[var(--accent)]/60 disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+        >
+          {disabled ? "导入中…" : "导入书籍"}
+        </button>
+      ) : (
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={openPicker}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
+          className={`flex w-full cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-6 py-10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:pointer-events-none disabled:opacity-60 ${
+            dragging
+              ? "border-[var(--accent)] bg-[var(--accent)]/10"
+              : "border-[var(--border)] bg-[var(--bg-elevated)] hover:border-[var(--accent)]/60"
+          }`}
+        >
+          <p className="text-base text-[var(--text)]">
+            {disabled
+              ? "正在导入…"
+              : "点击选择文件，或拖拽到此处（可多选）"}
+          </p>
+          <p className="mt-2 text-sm text-[var(--text-muted)]">
+            支持 txt / md / epub · 最大 {MAX_UPLOAD_BYTES / (1024 * 1024)}
+            MB/个
+          </p>
+          <p className="mt-1 text-xs text-[var(--text-muted)]">
+            「书名-01」「书名-02」等同批会自动合并为一本书
+          </p>
+        </button>
+      )}
+
+      {hint && !onLocalError ? (
+        <p
+          className={`mt-2 text-sm ${hint.includes("正在") ? "text-[var(--text-muted)]" : "text-red-400"}`}
+          role="status"
+        >
+          {hint}
         </p>
       ) : null}
     </div>
