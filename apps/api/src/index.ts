@@ -2,13 +2,33 @@ import { Hono } from "hono";
 import type { Env } from "./env";
 import { authRoutes, meRoutes } from "./routes/auth";
 import { booksRoutes } from "./routes/books";
+import { preferencesRoutes } from "./routes/preferences";
+import { progressRoutes } from "./routes/progress";
 
 const app = new Hono<{ Bindings: Env }>();
+
+app.use("*", async (c, next) => {
+  const origin = c.req.header("Origin");
+  const allowed = c.env.WEB_ORIGIN;
+  if (origin && allowed && origin === allowed) {
+    c.header("Access-Control-Allow-Origin", origin);
+    c.header("Access-Control-Allow-Credentials", "true");
+    c.header("Access-Control-Allow-Headers", "Content-Type");
+    c.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+    c.header("Vary", "Origin");
+  }
+  if (c.req.method === "OPTIONS") {
+    return c.body(null, 204);
+  }
+  await next();
+});
 
 app.get("/api/health", (c) => c.json({ ok: true, name: "雨读" }));
 
 app.route("/api/auth", authRoutes);
 app.route("/api", meRoutes);
 app.route("/api/books", booksRoutes);
+app.route("/api/progress", progressRoutes);
+app.route("/api/preferences", preferencesRoutes);
 
 export default app;
