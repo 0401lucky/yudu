@@ -28,3 +28,33 @@ body {
   color: var(--text);
   font-family: system-ui, "Segoe UI", sans-serif;
 }
+
+.reader-page,
+.reader-page-inner {
+  font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "SimSun",
+    serif;
+  color: var(--text);
+  background: var(--page-bg);
+}
+
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0);
+}
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
