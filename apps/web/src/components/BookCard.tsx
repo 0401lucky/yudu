@@ -6,6 +6,9 @@ interface BookCardProps {
   book: BookSummary;
   onDelete: (bookId: string) => void;
   deleting?: boolean;
+  /** 仅 md 书：从源文件重新解析 */
+  onReparse?: (bookId: string) => void;
+  reparsing?: boolean;
 }
 
 function statusLabel(status: BookSummary["status"]): string | null {
@@ -14,11 +17,21 @@ function statusLabel(status: BookSummary["status"]): string | null {
   return null;
 }
 
-export default function BookCard({ book, onDelete, deleting }: BookCardProps) {
+export default function BookCard({
+  book,
+  onDelete,
+  deleting,
+  onReparse,
+  reparsing,
+}: BookCardProps) {
   const navigate = useNavigate();
   const [coverFailed, setCoverFailed] = useState(false);
   const badge = statusLabel(book.status);
   const canOpen = book.status === "ready";
+  const canReparse =
+    book.format === "md" &&
+    book.status === "ready" &&
+    typeof onReparse === "function";
 
   function handleOpen() {
     if (!canOpen) return;
@@ -28,9 +41,19 @@ export default function BookCard({ book, onDelete, deleting }: BookCardProps) {
   function handleDelete(e: React.MouseEvent) {
     e.stopPropagation();
     e.preventDefault();
-    if (deleting) return;
+    if (deleting || reparsing) return;
     const ok = window.confirm(`确定删除《${book.title}》？此操作不可恢复。`);
     if (ok) onDelete(book.id);
+  }
+
+  function handleReparse(e: React.MouseEvent) {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!canReparse || reparsing || deleting) return;
+    const ok = window.confirm(
+      `重新解析《${book.title}》？将从源文件重建章节，进度尽量保留在原章节。`,
+    );
+    if (ok) onReparse?.(book.id);
   }
 
   return (
@@ -113,15 +136,28 @@ export default function BookCard({ book, onDelete, deleting }: BookCardProps) {
                 ? "未读"
                 : book.format.toUpperCase()}
           </span>
-          <button
-            type="button"
-            onClick={handleDelete}
-            disabled={deleting}
-            className="rounded px-1.5 py-1 text-xs text-[var(--text-muted)] opacity-80 hover:bg-red-950/40 hover:text-red-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:opacity-50 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
-            aria-label={`删除《${book.title}》`}
-          >
-            {deleting ? "…" : "删除"}
-          </button>
+          <div className="flex items-center gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+            {canReparse ? (
+              <button
+                type="button"
+                onClick={handleReparse}
+                disabled={reparsing || deleting}
+                className="rounded px-1.5 py-1 text-xs text-[var(--text-muted)] opacity-80 hover:bg-[var(--bg)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:opacity-50"
+                aria-label={`重新解析《${book.title}》`}
+              >
+                {reparsing ? "解析中…" : "重新解析"}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting || reparsing}
+              className="rounded px-1.5 py-1 text-xs text-[var(--text-muted)] opacity-80 hover:bg-red-950/40 hover:text-red-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:opacity-50"
+              aria-label={`删除《${book.title}》`}
+            >
+              {deleting ? "…" : "删除"}
+            </button>
+          </div>
         </div>
       </div>
     </article>

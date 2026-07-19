@@ -11,6 +11,8 @@ import {
   deleteBook,
   importBooksBatch,
   ImportValidationError,
+  reparseBook,
+  ReparseError,
   type UploadFile,
 } from "../services/importBook";
 import { getObject, getText } from "../services/storage";
@@ -214,6 +216,27 @@ booksRoutes.delete("/:id", async (c) => {
     );
   }
   return c.body(null, 204);
+});
+
+/**
+ * POST /api/books/:id/reparse
+ * 从 R2 源文件重新解析 Markdown 书；失败保留旧章节。
+ */
+booksRoutes.post("/:id/reparse", async (c) => {
+  const userId = c.get("userId");
+  const bookId = c.req.param("id");
+  try {
+    const summary = await reparseBook(c.env, userId, bookId);
+    return c.json(summary);
+  } catch (err) {
+    if (err instanceof ReparseError) {
+      return c.json(
+        { error: { code: err.code, message: err.message } },
+        err.status,
+      );
+    }
+    throw err;
+  }
 });
 
 /** GET /api/books/:id/chapters/:idx */

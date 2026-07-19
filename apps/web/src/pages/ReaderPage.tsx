@@ -10,6 +10,7 @@ import { useBookmarks, type Bookmark } from "../hooks/useBookmarks";
 import { useLocalReaderPrefs } from "../hooks/useLocalReaderPrefs";
 import { useProgressSync } from "../hooks/useProgressSync";
 import { ApiError, getBook, getChapter, getProgress } from "../lib/api";
+import { mdPlainLengthApprox } from "../lib/mdRender";
 
 /** 换章后想落到的页：数字=具体页；"last"=末页；null=不指定 */
 type PendingPage = number | "last" | null;
@@ -139,10 +140,12 @@ export default function ReaderPage() {
   // 供书架列表按字数计算全书百分比（后端要求非负整数）
   useEffect(() => {
     if (!book || !chapter) return;
+    const textLen =
+      book.format === "md"
+        ? mdPlainLengthApprox(chapter.text)
+        : chapter.text.length;
     const approxOffset =
-      pageCount > 0
-        ? Math.round((pageIndex / pageCount) * chapter.text.length)
-        : 0;
+      pageCount > 0 ? Math.round((pageIndex / pageCount) * textLen) : 0;
     schedule(chapterIndex, approxOffset, pageIndex);
   }, [book, chapter, chapterIndex, pageIndex, pageCount, schedule]);
 
@@ -241,6 +244,7 @@ export default function ReaderPage() {
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <ReaderViewport
           text={chapter?.text ?? ""}
+          contentMode={book.format === "md" ? "markdown" : "plain"}
           pageIndex={pageIndex}
           fontSize={prefs.fontSize}
           lineHeight={prefs.lineHeight}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseMd } from "./md";
+import { mdPlainLength, mdToPlainText, parseMd } from "./md";
 
 /** fixtures/sample.md */
 const SAMPLE_MD = `---
@@ -34,14 +34,13 @@ describe("parseMd", () => {
     expect(r.chapters.every((c) => !c.title.includes("样例书"))).toBe(true);
   });
 
-  it("剥离简单 markdown 标记为纯文本", () => {
+  it("章节正文保留 markdown 标记", () => {
     const sample = "## 章\n\n这是**加粗**与*斜体*文字。\n";
     const r = parseMd(new TextEncoder().encode(sample), "a.md");
     expect(r.chapters).toHaveLength(1);
+    expect(r.chapters[0].text).toContain("**加粗**");
+    expect(r.chapters[0].text).toContain("*斜体*");
     expect(r.chapters[0].text).toContain("加粗");
-    expect(r.chapters[0].text).toContain("斜体");
-    expect(r.chapters[0].text).not.toContain("**");
-    expect(r.chapters[0].text).not.toContain("*斜体*");
   });
 
   it("仅有 1 个 ## 时改用 # 分章", () => {
@@ -52,6 +51,8 @@ describe("parseMd", () => {
     expect(r.chapters).toHaveLength(2);
     expect(r.chapters[0].title).toMatch(/第一部/);
     expect(r.chapters[1].title).toMatch(/第二部/);
+    // 章内 ## 保留在正文
+    expect(r.chapters[1].text).toContain("## 仅一节");
   });
 
   it("无标题时整篇一章，title=文件名", () => {
@@ -70,5 +71,24 @@ describe("parseMd", () => {
     expect(r.chapters[0].text).toContain("正文开头");
     expect(r.chapters[0].text).not.toContain("author:");
     expect(r.chapters[0].text).not.toMatch(/^---/m);
+  });
+});
+
+describe("mdToPlainText", () => {
+  it("剥离简单 markdown 标记为纯文本", () => {
+    const plain = mdToPlainText("这是**加粗**与*斜体*和`code`与[链](https://x.com)。");
+    expect(plain).toContain("加粗");
+    expect(plain).toContain("斜体");
+    expect(plain).toContain("code");
+    expect(plain).toContain("链");
+    expect(plain).not.toContain("**");
+    expect(plain).not.toContain("`");
+    expect(plain).not.toContain("https://");
+  });
+
+  it("plain 长度小于含标记源文", () => {
+    const src = "**ab**";
+    expect(mdPlainLength(src)).toBe(2);
+    expect(mdPlainLength(src)).toBeLessThan(src.length);
   });
 });

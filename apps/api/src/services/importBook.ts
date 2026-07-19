@@ -9,11 +9,18 @@ import {
 } from "@yudu/shared";
 import type { Env } from "../env";
 import { parseTxt } from "../parsers/txt";
-import { parseMd } from "../parsers/md";
+import { mdPlainLength, parseMd } from "../parsers/md";
 import { parseEpub } from "../parsers/epub";
 import type { ParseResult, ParsedChapter } from "../parsers/types";
 import { generateCoverSvg } from "./cover";
-import { deletePrefix, getText, putBytes, putText, r2Key } from "./storage";
+import {
+  deletePrefix,
+  getObject,
+  getText,
+  putBytes,
+  putText,
+  r2Key,
+} from "./storage";
 
 export class ImportValidationError extends Error {
   readonly code: string;
@@ -21,6 +28,18 @@ export class ImportValidationError extends Error {
     super(message);
     this.name = "ImportValidationError";
     this.code = code;
+  }
+}
+
+/** 重新解析校验失败（映射 HTTP 4xx） */
+export class ReparseError extends Error {
+  readonly code: string;
+  readonly status: 400 | 404 | 409;
+  constructor(code: string, message: string, status: 400 | 404 | 409 = 400) {
+    super(message);
+    this.name = "ReparseError";
+    this.code = code;
+    this.status = status;
   }
 }
 
@@ -341,7 +360,7 @@ async function appendChaptersToBook(
           i,
           ch.title,
           key,
-          ch.text.length,
+          chapterCharCount(book.format, ch.text),
         ),
       );
     }
@@ -488,7 +507,7 @@ async function createBookFromGroup(
           i,
           ch.title,
           key,
-          ch.text.length,
+          chapterCharCount(primaryFormat, ch.text),
         ),
       );
     }
@@ -603,6 +622,299 @@ function normalizeChaptersForMerge(
   }
 
   return chapters;
+}
+
+/**
+ * 从 R2 源文件重新解析 Markdown 书并覆写章节。
+ * 失败时尽量恢复 ready 且不改旧章节（调用方应展示 error）。
+ */
+export async function reparseBook(
+  env: Env,
+  userId: string,
+  bookId: string,
+): Promise<BookSummary> {
+  const book = await env.DB.prepare(
+    `SELECT id, title, author, format, cover_r2_key, source_r2_key, status, chapter_count
+     FROM books WHERE id = ? AND user_id = ?`,
+  )
+    .bind(bookId, userId)
+    .first<{
+      id: string;
+      title: string;
+      author: string | null;
+      format: string;
+      cover_r2_key: string | null;
+      source_r2_key: string | null;
+      status: string;
+      chapter_count: number;
+    }>();
+
+  if (!book) {
+    throw new ReparseError("NOT_FOUND", "书籍不存在", 404);
+  }
+  if (book.format !== "md") {
+    throw new ReparseError("NOT_MARKDOWN", "仅支持重新解析 Markdown 书籍", 400);
+  }
+  if (book.status === "processing") {
+    throw new ReparseError("BUSY", "书籍正在处理中，请稍后再试", 409);
+  }
+
+  const sources = await listSourceObjects(env, userId, bookId, book.source_r2_key);
+  if (!sources.length) {
+    throw new ReparseError("SOURCE_MISSING", "找不到源文件，无法重新解析", 400);
+  }
+
+  const prevStatus = book.status;
+  const now = Date.now();
+  await env.DB.prepare(
+    `UPDATE books SET status = 'processing', error_message = NULL, updated_at = ?
+     WHERE id = ? AND user_id = ?`,
+  )
+    .bind(now, bookId, userId)
+    .run();
+
+  try {
+    const chapters = await parseSourceFilesToChapters(sources);
+    if (!chapters.length) {
+      throw new Error("未解析到任何章节");
+    }
+
+    // 先写新章节到内存完成后再改 D1，失败则旧章节仍在
+    const chapterInserts: D1PreparedStatement[] = [];
+    for (let i = 0; i < chapters.length; i++) {
+      const ch = chapters[i]!;
+      const key = r2Key.chapter(userId, bookId, i);
+      const body: ChapterPayload = {
+        title: ch.title,
+        text: ch.text,
+        sequence: ch.sequence ?? null,
+        sourceFile: ch.sourceFile,
+      };
+      await putText(env.BOOKS_BUCKET, key, JSON.stringify(body));
+      chapterInserts.push(
+        env.DB.prepare(
+          `INSERT INTO chapters (id, book_id, idx, title, r2_key, char_count)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+        ).bind(
+          crypto.randomUUID(),
+          bookId,
+          i,
+          ch.title,
+          key,
+          chapterCharCount("md", ch.text),
+        ),
+      );
+    }
+
+    const readyAt = Date.now();
+    // D1 删除与插入同批，避免半成功留下空章节表
+    await env.DB.batch([
+      env.DB.prepare(`DELETE FROM chapters WHERE book_id = ?`).bind(bookId),
+      ...chapterInserts,
+      env.DB.prepare(
+        `UPDATE books SET
+           status = 'ready', error_message = NULL,
+           chapter_count = ?, updated_at = ?
+         WHERE id = ? AND user_id = ?`,
+      ).bind(chapters.length, readyAt, bookId, userId),
+    ]);
+
+    // 进度：夹取 chapter_index
+    const prog = await env.DB.prepare(
+      `SELECT chapter_index, char_offset, page_in_chapter FROM reading_progress
+       WHERE user_id = ? AND book_id = ?`,
+    )
+      .bind(userId, bookId)
+      .first<{
+        chapter_index: number;
+        char_offset: number;
+        page_in_chapter: number | null;
+      }>();
+
+    if (prog) {
+      const maxIdx = Math.max(0, chapters.length - 1);
+      const clamped = Math.min(Math.max(0, prog.chapter_index), maxIdx);
+      if (clamped !== prog.chapter_index) {
+        await env.DB.prepare(
+          `UPDATE reading_progress SET chapter_index = ?, updated_at = ?
+           WHERE user_id = ? AND book_id = ?`,
+        )
+          .bind(clamped, readyAt, userId, bookId)
+          .run();
+      }
+    }
+
+    const progressPercent = await computeProgressPercent(
+      env,
+      userId,
+      bookId,
+      chapters.length,
+    );
+
+    return {
+      id: bookId,
+      title: book.title,
+      author: book.author,
+      format: "md",
+      coverUrl: book.cover_r2_key ? `/api/books/${bookId}/cover` : null,
+      status: "ready",
+      errorMessage: null,
+      chapterCount: chapters.length,
+      progressPercent,
+      updatedAt: readyAt,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const failedAt = Date.now();
+    // 恢复可读状态，不改 chapters
+    try {
+      await env.DB.prepare(
+        `UPDATE books SET status = ?, error_message = NULL, updated_at = ?
+         WHERE id = ? AND user_id = ?`,
+      )
+        .bind(prevStatus === "processing" ? "ready" : prevStatus, failedAt, bookId, userId)
+        .run();
+    } catch {
+      // ignore
+    }
+    throw new ReparseError(
+      "REPARSE_FAILED",
+      message.slice(0, 500) || "重新解析失败",
+      400,
+    );
+  }
+}
+
+async function listSourceObjects(
+  env: Env,
+  userId: string,
+  bookId: string,
+  sourceR2Key: string | null,
+): Promise<{ key: string; filename: string; bytes: Uint8Array }[]> {
+  const prefix = `${r2Key.bookPrefix(userId, bookId)}source/`;
+  const out: { key: string; filename: string; bytes: Uint8Array }[] = [];
+
+  let cursor: string | undefined;
+  for (;;) {
+    const listed = await env.BOOKS_BUCKET.list({ prefix, cursor, limit: 1000 });
+    for (const obj of listed.objects) {
+      const body = await getObject(env.BOOKS_BUCKET, obj.key);
+      if (!body) continue;
+      const ab = await body.arrayBuffer();
+      const filename = obj.key.slice(prefix.length) || "source.md";
+      out.push({
+        key: obj.key,
+        filename,
+        bytes: new Uint8Array(ab),
+      });
+    }
+    if (!listed.truncated) break;
+    cursor = listed.cursor;
+  }
+
+  if (!out.length && sourceR2Key) {
+    const body = await getObject(env.BOOKS_BUCKET, sourceR2Key);
+    if (body) {
+      const ab = await body.arrayBuffer();
+      const filename =
+        sourceR2Key.replace(/^.*[/\\]/, "") || "source.md";
+      out.push({
+        key: sourceR2Key,
+        filename,
+        bytes: new Uint8Array(ab),
+      });
+    }
+  }
+
+  return out;
+}
+
+async function parseSourceFilesToChapters(
+  sources: { filename: string; bytes: Uint8Array }[],
+): Promise<ChapterPayload[]> {
+  // 按文件名序号排序，与导入系列书一致
+  const sorted = [...sources].sort((a, b) =>
+    compareBySequence(a.filename, b.filename),
+  );
+
+  const chapters: ChapterPayload[] = [];
+  const multi = sorted.length > 1;
+
+  for (const src of sorted) {
+    const format = detectFormat(src.filename) ?? "md";
+    if (format !== "md" && format !== "txt") {
+      // 源目录里偶发非文本则跳过
+      if (format === "epub" || format === "pdf") continue;
+    }
+    const useFormat: Exclude<BookFormat, "pdf"> =
+      format === "txt" ? "txt" : "md";
+    const parsed = await parseByFormat(useFormat, src.bytes, src.filename);
+    const parts = parseFilenameSeries(src.filename);
+    const normalized = normalizeChaptersForMerge(
+      parsed.chapters,
+      parts,
+      multi || (parts.sequence != null && sorted.length === 1),
+    );
+    for (const ch of normalized) {
+      chapters.push({
+        title: ch.title,
+        text: ch.text,
+        sequence: parts.sequence,
+        sourceFile: parts.basename,
+      });
+    }
+  }
+
+  chapters.sort((a, b) => {
+    if (a.sequence != null && b.sequence != null && a.sequence !== b.sequence) {
+      return a.sequence - b.sequence;
+    }
+    if (a.sequence != null && b.sequence == null) return -1;
+    if (a.sequence == null && b.sequence != null) return 1;
+    return 0;
+  });
+
+  return chapters;
+}
+
+async function computeProgressPercent(
+  env: Env,
+  userId: string,
+  bookId: string,
+  chapterCount: number,
+): Promise<number | null> {
+  if (chapterCount <= 0) return null;
+  const prog = await env.DB.prepare(
+    `SELECT chapter_index, char_offset FROM reading_progress
+     WHERE user_id = ? AND book_id = ?`,
+  )
+    .bind(userId, bookId)
+    .first<{ chapter_index: number; char_offset: number }>();
+  if (!prog) return null;
+
+  const { results } = await env.DB.prepare(
+    `SELECT idx, char_count FROM chapters WHERE book_id = ? ORDER BY idx ASC`,
+  )
+    .bind(bookId)
+    .all<{ idx: number; char_count: number }>();
+
+  const rows = results ?? [];
+  let total = 0;
+  let read = 0;
+  for (const row of rows) {
+    total += row.char_count;
+    if (row.idx < prog.chapter_index) read += row.char_count;
+    else if (row.idx === prog.chapter_index) {
+      read += Math.min(Math.max(0, prog.char_offset), row.char_count);
+    }
+  }
+  if (total <= 0) return 0;
+  return Math.min(100, Math.round((read / total) * 100));
+}
+
+function chapterCharCount(format: string, text: string): number {
+  if (format === "md") return mdPlainLength(text);
+  return text.length;
 }
 
 /** 删除书籍：R2 前缀 + D1 */

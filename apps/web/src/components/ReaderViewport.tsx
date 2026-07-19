@@ -6,10 +6,13 @@ import {
   useState,
 } from "react";
 import type { FontFamilyId } from "../hooks/useLocalReaderPrefs";
+import { renderMarkdown } from "../lib/mdRender";
 
 interface ReaderViewportProps {
   /** 整章文本，由浏览器多栏排版自动分页，永不裁字 */
   text: string;
+  /** plain=纯文本；markdown=MD 子集富文本 */
+  contentMode?: "plain" | "markdown";
   /** 当前页（0-based） */
   pageIndex: number;
   fontSize: number;
@@ -48,6 +51,7 @@ const SWIPE_THRESHOLD = 48;
  */
 export default function ReaderViewport({
   text,
+  contentMode = "plain",
   pageIndex,
   fontSize,
   lineHeight,
@@ -93,7 +97,16 @@ export default function ReaderViewport({
 
   useLayoutEffect(() => {
     measure();
-  }, [measure, stride, text, fontSize, lineHeight, fontFamily, pageMargin]);
+  }, [
+    measure,
+    stride,
+    text,
+    contentMode,
+    fontSize,
+    lineHeight,
+    fontFamily,
+    pageMargin,
+  ]);
 
   useEffect(() => {
     const frame = frameRef.current;
@@ -190,7 +203,11 @@ export default function ReaderViewport({
       <div ref={clipRef} className="h-full w-full overflow-hidden">
         <div
           ref={trackRef}
-          className="reader-track h-full whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
+          className={
+            contentMode === "markdown"
+              ? "reader-track h-full break-words [overflow-wrap:anywhere]"
+              : "reader-track h-full whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
+          }
           style={{
             fontSize: `${fontSize}px`,
             lineHeight: String(lineHeight),
@@ -203,7 +220,7 @@ export default function ReaderViewport({
             willChange: "transform",
           }}
         >
-          {text}
+          {contentMode === "markdown" ? renderMarkdown(text) : text}
         </div>
       </div>
     </div>

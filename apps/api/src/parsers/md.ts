@@ -13,6 +13,15 @@ export function parseMd(bytes: Uint8Array, filename: string): ParseResult {
   };
 }
 
+/** 将 Markdown 子集源文近似为纯文本（进度 char_count / 书架百分比） */
+export function mdToPlainText(md: string): string {
+  return toPlainText(md);
+}
+
+export function mdPlainLength(md: string): number {
+  return mdToPlainText(md).length;
+}
+
 function normalizeNewlines(text: string): string {
   return text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 }
@@ -61,7 +70,7 @@ function splitMdChapters(text: string, fallbackTitle: string): ParsedChapter[] {
     return [
       {
         title: fallbackTitle,
-        text: toPlainText(text),
+        text: normalizeChapterBody(text),
       },
     ];
   }
@@ -90,7 +99,7 @@ function splitMdChapters(text: string, fallbackTitle: string): ParsedChapter[] {
     }
     chapters.push({
       title: currentTitle,
-      text: toPlainText(bodyLines.join("\n")),
+      text: normalizeChapterBody(bodyLines.join("\n")),
     });
     bodyLines = [];
   };
@@ -102,16 +111,24 @@ function splitMdChapters(text: string, fallbackTitle: string): ParsedChapter[] {
       currentTitle = title;
       continue;
     }
-    // 非当前分章层级的标题行：当作正文（会在 toPlainText 去 #）
+    // 非当前分章层级的标题行：当作正文保留（含 ### 等）
     bodyLines.push(line);
   }
   flush();
 
   if (chapters.length === 0) {
-    return [{ title: fallbackTitle, text: toPlainText(text) }];
+    return [{ title: fallbackTitle, text: normalizeChapterBody(text) }];
   }
 
   return chapters;
+}
+
+/** 章节正文：保留 Markdown 子集标记，仅规范化换行与空行 */
+function normalizeChapterBody(md: string): string {
+  return normalizeNewlines(md)
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/^\n+/, "")
+    .replace(/\n+$/, "");
 }
 
 /** 剥离简单 markdown 标记为纯文本，段落用 \n\n */
@@ -122,6 +139,8 @@ function toPlainText(md: string): string {
   for (let line of lines) {
     // 去掉 ATX 标题标记
     line = line.replace(/^#{1,6}\s+/, "");
+    // 去掉列表前缀
+    line = line.replace(/^(\s*)([-*+]|\d+\.)\s+/, "$1");
     line = stripInlineMd(line);
     out.push(line.trimEnd());
   }

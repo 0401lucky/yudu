@@ -135,6 +135,14 @@ export function deleteBook(bookId: string): Promise<void> {
   });
 }
 
+/** 从源文件重新解析 Markdown 书 */
+export function reparseBook(bookId: string): Promise<BookSummary> {
+  return api<BookSummary>(
+    `/api/books/${encodeURIComponent(bookId)}/reparse`,
+    { method: "POST" },
+  );
+}
+
 export function getBook(bookId: string): Promise<BookDetail> {
   return api<BookDetail>(`/api/books/${encodeURIComponent(bookId)}`);
 }

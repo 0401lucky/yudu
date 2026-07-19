@@ -40,6 +40,11 @@ export interface BookDetail {
 export interface ChapterContent {
   index: number;
   title: string;
+  /**
+   * 章节正文。
+   * - txt / epub：纯文本
+   * - md：Markdown 子集源文（阅读器按 format=md 渲染）
+   */
   text: string;
 }
 

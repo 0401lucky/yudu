@@ -3,7 +3,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import BookCard from "../components/BookCard";
 import ImportDropzone from "../components/ImportDropzone";
-import { ApiError, deleteBook, importBooks, listBooks } from "../lib/api";
+import {
+  ApiError,
+  deleteBook,
+  importBooks,
+  listBooks,
+  reparseBook,
+} from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 const POLL_INTERVAL_MS = 2000;
@@ -16,6 +22,7 @@ export default function LibraryPage() {
   const [importing, setImporting] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [reparsingId, setReparsingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pollEpoch, setPollEpoch] = useState(0);
   const pollEpochRef = useRef(0);
@@ -151,6 +158,36 @@ export default function LibraryPage() {
     }
   }
 
+  async function handleReparse(bookId: string) {
+    setError(null);
+    setImportStatus(null);
+    setReparsingId(bookId);
+    setBooks((prev) =>
+      prev.map((b) =>
+        b.id === bookId ? { ...b, status: "processing" as const } : b,
+      ),
+    );
+    try {
+      const summary = await reparseBook(bookId);
+      setBooks((prev) => prev.map((b) => (b.id === bookId ? summary : b)));
+      setImportStatus(
+        `重新解析成功：《${summary.title}》（${summary.chapterCount} 章）`,
+      );
+      if (summary.status === "processing") {
+        setPollEpoch((e) => e + 1);
+      }
+    } catch (err) {
+      try {
+        await refreshBooks();
+      } catch {
+        // ignore
+      }
+      setError(errMessage(err, "重新解析失败"));
+    } finally {
+      setReparsingId(null);
+    }
+  }
+
   const empty = !loading && books.length === 0;
   const importDisabled = importing; // 不再用 loading 锁导入按钮，避免「一直点不了」
 
@@ -245,6 +282,8 @@ export default function LibraryPage() {
                 book={book}
                 onDelete={handleDelete}
                 deleting={deletingId === book.id}
+                onReparse={handleReparse}
+                reparsing={reparsingId === book.id}
               />
             ))}
           </div>
