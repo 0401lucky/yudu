@@ -59,7 +59,7 @@ body {
   max-width: 100vw;
 }
 
-/* Markdown 阅读子集 */
+/* Markdown / GFM 阅读样式 */
 .reader-md {
   max-width: 100%;
 }
@@ -71,12 +71,13 @@ body {
 }
 .reader-md-h {
   font-weight: 600;
-  margin: 0.6em 0 0.45em;
+  margin: 0.75em 0 0.45em;
   line-height: 1.35;
   color: var(--text);
+  break-inside: avoid;
 }
 .reader-md-h1 {
-  font-size: 1.25em;
+  font-size: 1.28em;
 }
 .reader-md-h2 {
   font-size: 1.18em;
@@ -85,16 +86,29 @@ body {
 .reader-md-h4,
 .reader-md-h5,
 .reader-md-h6 {
-  font-size: 1.1em;
+  font-size: 1.08em;
 }
 .reader-md-ul,
 .reader-md-ol {
   margin: 0 0 0.85em;
   padding-left: 1.4em;
 }
-.reader-md-ul li,
-.reader-md-ol li {
+.reader-md-li {
   margin: 0.2em 0;
+}
+.reader-md-del {
+  opacity: 0.75;
+}
+.reader-md-blockquote {
+  margin: 0 0 0.85em;
+  padding: 0.15em 0 0.15em 0.85em;
+  border-left: 3px solid var(--accent);
+  color: var(--text-muted);
+}
+.reader-md-hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1em 0;
 }
 .reader-md-code {
   font-family: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
@@ -103,11 +117,82 @@ body {
   border-radius: 0.25em;
   background: color-mix(in srgb, var(--text) 8%, transparent);
 }
+.reader-md-pre {
+  margin: 0 0 0.85em;
+  padding: 0.65em 0.75em;
+  overflow-x: auto;
+  border-radius: 0.4em;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--text) 5%, var(--page-bg));
+  font-size: 0.9em;
+  line-height: 1.45;
+  break-inside: avoid;
+}
+.reader-md-pre .reader-md-code,
+.reader-md-code-block {
+  padding: 0;
+  background: transparent;
+  font-size: inherit;
+  white-space: pre;
+}
 .reader-md-link {
   color: var(--accent);
   text-decoration: underline;
   text-underline-offset: 0.15em;
   cursor: pointer;
+}
+.reader-md-link-disabled {
+  color: var(--text);
+}
+.reader-md-img-fallback {
+  color: var(--text-muted);
+  font-size: 0.95em;
+}
+
+/* 表格：多栏分页下尽量完整展示 */
+.reader-md-table-wrap {
+  margin: 0 0 0.9em;
+  max-width: 100%;
+  overflow-x: auto;
+  break-inside: avoid;
+  -webkit-overflow-scrolling: touch;
+}
+.reader-md-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92em;
+  line-height: 1.4;
+}
+.reader-md-th,
+.reader-md-td {
+  border: 1px solid var(--border);
+  padding: 0.35em 0.55em;
+  text-align: left;
+  vertical-align: top;
+  word-break: break-word;
+}
+.reader-md-th {
+  font-weight: 600;
+  background: color-mix(in srgb, var(--text) 6%, var(--page-bg));
+}
+.reader-md-table tbody tr:nth-child(even) .reader-md-td {
+  background: color-mix(in srgb, var(--text) 3%, transparent);
+}
+
+/* GFM 任务列表 */
+.reader-md ul.contains-task-list {
+  list-style: none;
+  padding-left: 0.25em;
+}
+.reader-md li.task-list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4em;
+}
+.reader-md li.task-list-item input {
+  margin-top: 0.35em;
+  accent-color: var(--accent);
+  pointer-events: none;
 }
 
 :focus-visible {

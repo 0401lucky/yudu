@@ -1,40 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  isSafeHttpUrl,
-  parseInline,
-  parseMdBlocks,
-  mdPlainLengthApprox,
-} from "./mdRender";
-
-describe("parseMdBlocks", () => {
-  it("解析段落、标题与列表", () => {
-    const blocks = parseMdBlocks(
-      "开篇\n\n### 小节\n\n- 甲\n- 乙\n\n1. 一\n2. 二\n",
-    );
-    expect(blocks).toEqual([
-      { type: "p", text: "开篇" },
-      { type: "h", level: 3, text: "小节" },
-      { type: "ul", items: ["甲", "乙"] },
-      { type: "ol", items: ["一", "二"] },
-    ]);
-  });
-});
-
-describe("parseInline", () => {
-  it("解析粗体斜体代码与链接", () => {
-    const tokens = parseInline(
-      "这是**加粗**与*斜体*和`code`与[链](https://example.com)。",
-    );
-    expect(tokens).toContainEqual({ type: "strong", value: "加粗" });
-    expect(tokens).toContainEqual({ type: "em", value: "斜体" });
-    expect(tokens).toContainEqual({ type: "code", value: "code" });
-    expect(tokens).toContainEqual({
-      type: "link",
-      text: "链",
-      href: "https://example.com",
-    });
-  });
-});
+import { isSafeHttpUrl, mdPlainLengthApprox, renderMarkdown } from "./mdRender";
 
 describe("isSafeHttpUrl", () => {
   it("仅允许 http(s)", () => {
@@ -48,5 +13,27 @@ describe("isSafeHttpUrl", () => {
 describe("mdPlainLengthApprox", () => {
   it("去掉标记后长度变短", () => {
     expect(mdPlainLengthApprox("**ab**")).toBe(2);
+  });
+
+  it("表格行计入单元格文字", () => {
+    const n = mdPlainLengthApprox("| 甲 | 乙 |\n| --- | --- |\n| 1 | 2 |");
+    expect(n).toBeGreaterThan(0);
+    expect(n).toBeLessThan("| 甲 | 乙 |\n| --- | --- |\n| 1 | 2 |".length);
+  });
+});
+
+describe("renderMarkdown", () => {
+  it("空内容返回 null", () => {
+    expect(renderMarkdown("")).toBeNull();
+    expect(renderMarkdown("   ")).toBeNull();
+  });
+
+  it("返回带 reader-md 容器的节点", () => {
+    const node = renderMarkdown("**加粗** 与表格\n\n| a | b |\n| - | - |\n| 1 | 2 |\n");
+    expect(node).not.toBeNull();
+    // React 元素
+    expect(typeof node === "object" && node !== null && "props" in node).toBe(
+      true,
+    );
   });
 });
