@@ -31,10 +31,21 @@ const VERTICAL_PAD: Record<string, string> = {
   normal: "1rem",
   relaxed: "1.25rem",
 };
+/** 栏内左右内边距（版心已限宽，大屏不再用巨大 padding「硬挤」） */
 const HORIZONTAL_PAD: Record<string, string> = {
-  compact: "clamp(0.75rem, 4vw, 1rem)",
-  relaxed: "clamp(1rem, 5vw, 2rem)",
-  normal: "clamp(0.875rem, 4.5vw, 1.5rem)",
+  compact: "0.85rem",
+  normal: "1.15rem",
+  relaxed: "1.5rem",
+};
+
+/**
+ * 桌面端版心最大宽度（相对字号的 em），避免整屏拉行导致难读。
+ * 中文约 32～40 字/行更舒适；边距档位略调宽窄。
+ */
+const MEASURE_EM: Record<"compact" | "normal" | "relaxed", number> = {
+  compact: 34,
+  normal: 38,
+  relaxed: 42,
 };
 
 const FONT_STACK: Record<FontFamilyId, string> = {
@@ -186,41 +197,52 @@ export default function ReaderViewport({
   );
 
   const translateX = -(pageIndex * stride) + dragDx;
+  const measureMax = `min(100%, ${MEASURE_EM[pageMargin]}em)`;
 
   return (
     <div
       ref={frameRef}
-      className="reader-page relative h-full w-full touch-pan-y select-none overflow-hidden"
-      style={{
-        padding: `${VERTICAL_PAD[pageMargin]} ${HORIZONTAL_PAD[pageMargin]}`,
-      }}
+      className="reader-page relative flex h-full w-full touch-pan-y select-none items-stretch justify-center overflow-hidden"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
     >
-      {/* 裁剪窗口：只露出当前栏，padding 区不会漏出相邻栏 */}
-      <div ref={clipRef} className="h-full w-full overflow-hidden">
-        <div
-          ref={trackRef}
-          className={
-            contentMode === "markdown"
-              ? "reader-track h-full break-words [overflow-wrap:anywhere]"
-              : "reader-track h-full whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
-          }
-          style={{
-            fontSize: `${fontSize}px`,
-            lineHeight: String(lineHeight),
-            fontFamily: FONT_STACK[fontFamily],
-            columnWidth: `${stride}px`,
-            columnGap: 0,
-            columnFill: "auto",
-            transform: `translateX(${translateX}px)`,
-            transition: animate ? "transform 0.28s ease" : "none",
-            willChange: "transform",
-          }}
-        >
-          {contentMode === "markdown" ? renderMarkdown(text) : text}
+      {/*
+        版心：大屏限制最大行宽并水平居中；手机仍 100%。
+        外层 frame 全宽，两侧空白仍可点翻页/唤出工具栏。
+      */}
+      <div
+        className="reader-page-inner relative flex h-full min-h-0 w-full flex-col"
+        style={{
+          maxWidth: measureMax,
+          fontSize: `${fontSize}px`,
+          padding: `${VERTICAL_PAD[pageMargin]} ${HORIZONTAL_PAD[pageMargin]}`,
+        }}
+      >
+        {/* 裁剪窗口：只露出当前栏，padding 区不会漏出相邻栏 */}
+        <div ref={clipRef} className="min-h-0 w-full flex-1 overflow-hidden">
+          <div
+            ref={trackRef}
+            className={
+              contentMode === "markdown"
+                ? "reader-track h-full break-words [overflow-wrap:anywhere]"
+                : "reader-track h-full whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
+            }
+            style={{
+              fontSize: `${fontSize}px`,
+              lineHeight: String(lineHeight),
+              fontFamily: FONT_STACK[fontFamily],
+              columnWidth: `${stride}px`,
+              columnGap: 0,
+              columnFill: "auto",
+              transform: `translateX(${translateX}px)`,
+              transition: animate ? "transform 0.28s ease" : "none",
+              willChange: "transform",
+            }}
+          >
+            {contentMode === "markdown" ? renderMarkdown(text) : text}
+          </div>
         </div>
       </div>
     </div>

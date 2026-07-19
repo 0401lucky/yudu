@@ -34,8 +34,7 @@ body {
   overscroll-behavior: none;
 }
 
-.reader-page,
-.reader-page-inner {
+.reader-page {
   font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "SimSun",
     serif;
   color: var(--text);
@@ -43,8 +42,19 @@ body {
 }
 
 .reader-page-inner {
+  font-family: inherit;
+  color: inherit;
+  background: var(--page-bg);
   /* 分页溢出时宁可裁切，也不要顶到工具栏下面 */
   overflow: hidden;
+  /* 大屏版心两侧淡化留白，减少「空荡」感 */
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--border) 55%, transparent);
+}
+
+@media (max-width: 640px) {
+  .reader-page-inner {
+    box-shadow: none;
+  }
 }
 
 .safe-top {
@@ -119,12 +129,13 @@ body {
 }
 .reader-md-pre {
   margin: 0 0 0.85em;
-  padding: 0.65em 0.75em;
+  padding: 0.55em 0.7em;
   overflow-x: auto;
+  max-width: 100%;
   border-radius: 0.4em;
   border: 1px solid var(--border);
   background: color-mix(in srgb, var(--text) 5%, var(--page-bg));
-  font-size: 0.9em;
+  font-size: 0.84em;
   line-height: 1.45;
   break-inside: avoid;
 }
