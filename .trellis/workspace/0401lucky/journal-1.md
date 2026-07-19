@@ -14,3 +14,36 @@
 
 ---
 
+
+
+## Session 1: Markdown 渲染与重新解析
+
+**Date**: 2026-07-19
+**Task**: Markdown 渲染与重新解析
+**Branch**: `feat/yudu-reader`
+
+### Summary
+
+实现 MD 子集阅读渲染、书架重新解析、API reparse；提交并部署到 Cloudflare Workers (yudu.jiezhi858.workers.dev)。本地无 GitHub remote。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `05695ea` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
