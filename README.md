@@ -146,4 +146,4 @@ pnpm exec wrangler deploy
 
 ## 许可
 
-私人项目。
+[MIT](./LICENSE) © 0401lucky
