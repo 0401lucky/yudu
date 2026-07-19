@@ -1,6 +1,7 @@
 # 跨层思考指南 — 雨读
 
-> 本项目的 bug 多发在 **shared 契约 ↔ api 映射 ↔ web 消费** 边界，以及 **D1 snake_case ↔ JSON camelCase**。
+> 本项目的 bug 多发在 **shared 契约 ↔ api 映射 ↔ web 消费** 边界，以及 **D1 snake_case ↔ JSON camelCase**。  
+> 产品定位见 [product-positioning.md](./product-positioning.md)（**通用阅读器**，非仅小说）。
 
 ---
 

@@ -22,8 +22,9 @@ apps/api/
 │   │   ├── storage.ts        # R2 key 与读写封装
 │   │   └── cover.ts          # SVG 封面生成
 │   └── parsers/
-│       ├── types.ts          # ParseResult / ParsedChapter
+│       ├── types.ts          # ParseResult / ParsedChapter（新格式统一输出）
 │       ├── txt.ts / md.ts / epub.ts
+│       ├── （规划）pdf.ts    # BookFormat 已预留；实现见 product-positioning
 │       └── *.test.ts
 ├── migrations/
 │   └── 0001_init.sql         # D1 迁移

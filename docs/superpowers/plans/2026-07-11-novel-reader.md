@@ -1,8 +1,11 @@
-# 雨读 · 小说阅读器 Implementation Plan
+# 雨读 · 阅读器 Implementation Plan（历史）
+
+> ⚠️ **2026-07-20：** 产品定位已改为 **通用阅读器**。请优先阅读  
+> `.trellis/spec/guides/product-positioning.md`。本计划仍为早期实现清单存档。
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 构建可部署到 Cloudflare 的响应式小说阅读器：账号云同步、导入 txt/md/epub、左右翻页阅读，视觉为「雨夜书房」。
+**Goal:** 构建可部署到 Cloudflare 的响应式阅读器：账号云同步、导入 txt/md/epub、左右翻页阅读，视觉为「雨夜书房」。
 
 **Architecture:** Vite + React SPA 部署 Pages；Hono API 跑在 Workers；D1 存用户/元数据/进度/偏好；R2 存章节正文与封面。解析在 Worker 完成；分页在浏览器按章测量，进度以 `chapter_index + char_offset` 锚定。
 

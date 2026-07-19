@@ -1,19 +1,31 @@
 # 思考指南（雨读）
 
-> 编码前用来避免「没想到」的跨层与重复实现问题。
+> 编码前用来避免「没想到」的跨层与重复实现问题。  
+> **产品是通用在线阅读器**（非仅小说）。对接本仓库的 AI 请先读产品定位。
+
+---
+
+## 产品定位（必读）
+
+| 文档 | 用途 |
+|------|------|
+| [**产品定位**](./product-positioning.md) | 雨读是什么 / 不是什么、当前格式、PDF 扩展清单、文案约定 |
+
+**一句话：** 云端文库 + 多格式沉浸阅读；`Book` = 任意可导入作品，不限小说。
 
 ---
 
 ## 本仓库架构速记
 
 ```
-浏览器 SPA (@yudu/web)
+浏览器 SPA (@yudu/web)     通用阅读客户端
     │  Cookie 会话 + JSON / multipart
     ▼
-Worker Hono (@yudu/api)
-    ├─ D1：用户 / 书元数据 / 进度 / 偏好
+Worker Hono (@yudu/api)    导入 / 分章 / 进度 / 鉴权
+    ├─ D1：用户 / 作品元数据 / 进度 / 偏好
     └─ R2：章节 JSON / 封面 / 源文件
-共享契约：@yudu/shared
+共享契约：@yudu/shared     格式枚举、DTO、文件名系列
+当前格式：txt | md | epub   预留：pdf（未实现）
 ```
 
 ---
@@ -22,12 +34,19 @@ Worker Hono (@yudu/api)
 
 | 指南 | 何时使用 |
 |------|----------|
+| [产品定位](./product-positioning.md) | 新功能范围、文案、新格式（含 PDF） |
 | [跨层思考](./cross-layer-thinking-guide.md) | 改 API 字段、进度/偏好、导入合并、鉴权 |
 | [复用思考](./code-reuse-thinking-guide.md) | 新常量、新校验、文件名规则、重复 fetch 逻辑 |
 
 ---
 
 ## 触发清单
+
+### 产品 / 格式
+
+- [ ] 新增可读格式（如 PDF）→ 先读 [产品定位 · 扩展清单](./product-positioning.md)
+- [ ] 改导入白名单或 `SUPPORTED_FORMATS` → shared + api + web 三处对齐
+- [ ] 写用户可见文案 → 避免「仅小说」措辞
 
 ### 跨层
 

@@ -262,7 +262,7 @@ export default function LibraryPage() {
         ) : empty ? (
           <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--bg-elevated)] px-6 py-12">
             <p className="mb-6 text-center text-lg text-[var(--text)]">
-              导入第一本书，在雨夜里打开它
+              导入第一份文档或电子书，开始阅读
             </p>
             <div className="mx-auto max-w-md">
               <ImportDropzone

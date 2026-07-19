@@ -64,7 +64,7 @@ export default function LoginPage() {
           >
             雨读
           </Link>
-          <p className="mt-2 text-[var(--text-muted)]">登录你的雨夜书房</p>
+          <p className="mt-2 text-[var(--text-muted)]">登录雨读，同步你的文库</p>
         </div>
 
         <form onSubmit={onSubmit} className="space-y-4" noValidate>

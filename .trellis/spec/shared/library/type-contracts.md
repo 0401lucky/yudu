@@ -5,8 +5,8 @@
 | 符号 | 值 / 含义 | 使用方 |
 |------|-----------|--------|
 | `MAX_UPLOAD_BYTES` | 30MB | api 导入校验；web 可做前端提示 |
-| `SUPPORTED_FORMATS` | `["txt","md","epub"]` | 导入白名单 |
-| `BookFormat` | 上述 + 预留 `"pdf"` | 元数据 format 字段 |
+| `SUPPORTED_FORMATS` | `["txt","md","epub"]` | 导入白名单（通用阅读器当前格式） |
+| `BookFormat` | 上述 + 预留 `"pdf"` | 元数据 format；**pdf 未实现解析** |
 | `SESSION_COOKIE` | `"yudu_session"` | api 设/读 Cookie；与 web 间接一致 |
 | `SESSION_DAYS` | `30` | 会话过期与 Cookie maxAge |
 
@@ -19,8 +19,8 @@
 | 类型 | 用途 |
 |------|------|
 | `UserPublic` | 注册/登录/me：`id` `email` `displayName` |
-| `BookSummary` | 书架列表项（含 `coverUrl` `progressPercent` `status`） |
-| `BookDetail` | 书元数据 + `chapters: ChapterMeta[]` |
+| `BookSummary` | 书架列表项（「Book」= 任意可阅读作品，非仅小说） |
+| `BookDetail` | 作品元数据 + `chapters: ChapterMeta[]` |
 | `ChapterMeta` / `ChapterContent` | 目录 vs 正文 |
 | `ReadingProgress` | 进度读写 |
 | `UserPreferences` | 主题/字号/行距/页边距 |

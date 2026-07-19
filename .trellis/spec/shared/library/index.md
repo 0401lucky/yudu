@@ -1,6 +1,8 @@
 # @yudu/shared 共享库指南
 
-> 前后端共用的类型、常量与纯函数。包路径：`packages/shared`。
+> 前后端共用的类型、常量与纯函数。包路径：`packages/shared`。  
+> 契约服务 **通用阅读器**（`SUPPORTED_FORMATS`、进度 DTO 等）。  
+> 产品定位：[../../guides/product-positioning.md](../../guides/product-positioning.md)
 
 ---
 
@@ -11,6 +13,7 @@
 | API 与 SPA 的 **契约层** | React 组件或 Hono 路由 |
 | 可在 Workers 与浏览器运行的 **纯 TS** | Node-only / DOM-only API |
 | 常量与文件名系列解析 | D1 访问、R2、Cookie 写入 |
+| `BookFormat` 含预留 `pdf` | 在此包实现 PDF 解析 |
 
 依赖：无 runtime dependencies；仅 TypeScript + vitest。
 

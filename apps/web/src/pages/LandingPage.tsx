@@ -35,9 +35,9 @@ export default function LandingPage() {
           <h1 className="text-4xl font-semibold tracking-wide text-[var(--accent)] md:text-5xl">
             雨读
           </h1>
-          <p className="text-lg text-[var(--text)]">雨夜书房 · 沉浸阅读</p>
+          <p className="text-lg text-[var(--text)]">雨夜书房 · 通用阅读器</p>
           <p className="max-w-md text-[var(--text-muted)] leading-relaxed mx-auto md:mx-0">
-            导入 txt / md / epub，账号云同步进度。在安静的深色书房里，左右翻页读完这一夜。
+            导入文档与电子书（txt / md / epub），账号云同步进度。在安静的深色界面里左右翻页——笔记、手册、长文都合适。
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3 md:justify-start">
             <Link
@@ -65,7 +65,7 @@ export default function LandingPage() {
           </div>
           <div className="reader-page min-h-[220px] rounded-lg bg-[var(--page-bg)] p-5">
             <p className="font-serif text-[0.95rem] leading-[1.85] text-[var(--text)]">
-              窗外雨声细密，灯下书页微暖。你翻过这一页，故事便在云端静静等你——不必赶路，只需把呼吸放慢，与角色并肩站在雨里。
+              窗外雨声细密，灯下页面微暖。进度记在云端，换设备也能接着读——不必赶路，把注意力留给文字本身。
             </p>
           </div>
           <p className="mt-4 text-center text-xs text-[var(--text-muted)]">

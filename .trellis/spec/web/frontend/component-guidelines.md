@@ -1,5 +1,8 @@
 # 组件约定 — @yudu/web
 
+> 产品：**通用阅读器**。文案避免「仅小说」；「书 / 书架」表示作品库即可。  
+> 见 [产品定位](../../guides/product-positioning.md)。
+
 ## 总体风格
 
 - 函数组件 + TypeScript props 接口

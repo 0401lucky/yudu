@@ -1,6 +1,8 @@
 # @yudu/api 后端开发指南
 
-> Cloudflare Workers + Hono 的 API 层约定。包路径：`apps/api`。
+> Cloudflare Workers + Hono 的 API 层约定。包路径：`apps/api`。  
+> 服务对象：**通用阅读器**后端（导入任意支持格式的作品，非仅小说）。  
+> 权威定位：[../../guides/product-positioning.md](../../guides/product-positioning.md)
 
 ---
 
@@ -13,6 +15,7 @@
 | 数据 | D1（元数据）+ R2（章节正文 / 封面 / 源文件） |
 | 鉴权 | HttpOnly Cookie 会话（`yudu_session`） |
 | 静态前端 | Workers Assets 绑定 `ASSETS`，非 `/api` 回退 SPA |
+| 格式 | `parsers/` 注册表：`txt` / `md` / `epub`；`pdf` 预留未实现 |
 
 入口：`apps/api/src/index.ts`。环境类型：`apps/api/src/env.ts`。
 

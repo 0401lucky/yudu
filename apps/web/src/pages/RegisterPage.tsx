@@ -68,7 +68,7 @@ export default function RegisterPage() {
           >
             雨读
           </Link>
-          <p className="mt-2 text-[var(--text-muted)]">创建你的雨夜书房</p>
+          <p className="mt-2 text-[var(--text-muted)]">创建文库，开始阅读</p>
         </div>
 
         <form onSubmit={onSubmit} className="space-y-4" noValidate>

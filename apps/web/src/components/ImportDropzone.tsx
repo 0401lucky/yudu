@@ -146,7 +146,7 @@ export default function ImportDropzone({
           onClick={openPicker}
           className="min-h-[44px] rounded-lg border border-dashed border-[var(--border)] bg-[var(--bg-elevated)] px-4 py-2 text-sm text-[var(--accent)] hover:border-[var(--accent)]/60 disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
         >
-          {disabled ? "导入中…" : "导入书籍"}
+          {disabled ? "导入中…" : "导入文件"}
         </button>
       ) : (
         <button
@@ -168,11 +168,12 @@ export default function ImportDropzone({
               : "点击选择文件，或拖拽到此处（可多选）"}
           </p>
           <p className="mt-2 text-sm text-[var(--text-muted)]">
-            支持 txt / md / epub · 最大 {MAX_UPLOAD_BYTES / (1024 * 1024)}
+            支持 txt / md / epub（更多格式规划中）· 最大{" "}
+            {MAX_UPLOAD_BYTES / (1024 * 1024)}
             MB/个
           </p>
           <p className="mt-1 text-xs text-[var(--text-muted)]">
-            「书名-01/02」合并为一本；之后再导「书名-03」会追加到已有书
+            「标题-01/02」可合并为一部作品；之后再导「标题-03」会追加章节
           </p>
         </button>
       )}

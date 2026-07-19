@@ -1,5 +1,7 @@
 # 代码复用思考指南 — 雨读
 
+> 产品定位见 [product-positioning.md](./product-positioning.md)（通用阅读器）。
+
 > 小仓库里重复的主要不是「通用 utils」，而是 **常量、校验、API 封装、文件名规则** 被写第二遍。
 
 ---

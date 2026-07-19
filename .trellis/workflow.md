@@ -1,5 +1,10 @@
 # Development Workflow
 
+> **This repo’s product:** Yudu — a **general online reader** (not novel-only).  
+> Before planning features or formats (e.g. PDF), read:  
+> `.trellis/spec/guides/product-positioning.md`  
+> Package specs: `.trellis/spec/{web,api,shared}/…/index.md`
+
 ---
 
 ## Core Principles

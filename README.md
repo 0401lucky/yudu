@@ -1,6 +1,20 @@
-# 雨读
+# 雨读（Yudu）
 
-在线小说阅读器 — **雨夜书房**。支持账号云同步、导入 txt / md / epub、左右翻页阅读。部署目标：Cloudflare Pages + Workers + D1 + R2。
+**通用在线阅读器** — 品牌气质「雨夜书房」。账号云同步、导入多格式文档、左右翻页沉浸阅读。
+
+部署：Cloudflare Workers（API + 静态资源同源）+ D1 + R2。
+
+> 产品定位（给 AI / 协作者）：[`.trellis/spec/guides/product-positioning.md`](./.trellis/spec/guides/product-positioning.md)
+
+## 当前能力
+
+| 能力 | 说明 |
+|------|------|
+| 账号 | 注册 / 登录 / 会话 Cookie |
+| 导入 | **txt / md / epub**（系列文件名可合并） |
+| 阅读 | 左右翻页、目录、书签（本地）、主题 night/paper |
+| 同步 | 阅读进度、偏好云端；Markdown GFM 渲染 |
+| 规划中 | **PDF** 等格式（类型已预留 `pdf`，解析未实现） |
 
 ## 结构
 
@@ -9,7 +23,8 @@
 | `apps/web` | 前端（Vite + React + Tailwind） |
 | `apps/api` | 后端（Cloudflare Workers + Hono） |
 | `packages/shared` | 共享类型与常量 |
-| `docs/superpowers/` | 设计规格与实现计划 |
+| `.trellis/spec/` | 编码规范与产品定位（AI 必读） |
+| `docs/superpowers/` | 历史设计与实现计划（架构参考） |
 
 ## 本地开发
 
@@ -78,7 +93,7 @@ pnpm --filter @yudu/api exec wrangler whoami
 
 ### 2. D1 与 R2
 
-- D1：账号上限 10 个库时，可复用空库（当前配置 `novel-reading-platform-db`）
+- D1：账号上限 10 个库时，可复用空库（当前配置 `novel-reading-platform-db`，**仅为历史库名**）
 - R2：`yudu-books`（`wrangler r2 bucket create yudu-books`）
 
 在 `apps/api/wrangler.toml` 填写 `database_id` 与 `bucket_name`。
@@ -121,6 +136,13 @@ pnpm exec wrangler deploy
 | `DB` | D1 binding | 元数据 |
 | `BOOKS_BUCKET` | R2 binding | 章节与封面 |
 | `ASSETS` | Workers Assets | 前端静态资源 |
+
+## 给 AI 协作者
+
+1. 先读 [产品定位](./.trellis/spec/guides/product-positioning.md)  
+2. 再读 [`.trellis/spec/guides/index.md`](./.trellis/spec/guides/index.md) 与对应包 `index.md`  
+3. 任务流见 [`.trellis/workflow.md`](./.trellis/workflow.md)  
+4. 新格式（如 PDF）按定位文档中的扩展清单改 shared → parsers → import → web  
 
 ## 许可
 

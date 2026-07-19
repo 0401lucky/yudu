@@ -1,6 +1,8 @@
 # @yudu/web 前端开发指南
 
-> Vite + React + Tailwind 的 SPA。包路径：`apps/web`。产品名：**雨读**。
+> Vite + React + Tailwind 的 SPA。包路径：`apps/web`。  
+> 产品：**雨读** — **通用在线阅读器**（txt / md / epub；PDF 规划中）。  
+> 权威定位：[../../guides/product-positioning.md](../../guides/product-positioning.md)
 
 ---
 
