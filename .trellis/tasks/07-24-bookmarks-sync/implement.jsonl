@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/api/backend/database-guidelines.md", "reason": "新增 bookmarks 表的 D1 迁移与表设计需遵循数据库规范"}
+{"file": ".trellis/spec/api/backend/directory-structure.md", "reason": "新路由文件 routes/bookmarks.ts 的放置与挂载约定"}
+{"file": ".trellis/spec/api/backend/error-handling.md", "reason": "书签 API 错误体 {error:{code,message}} 与状态码约定"}
+{"file": ".trellis/spec/shared/library/type-contracts.md", "reason": "BookmarkDto 共享类型契约的定义位置与导出约定"}
+{"file": ".trellis/spec/web/frontend/hook-guidelines.md", "reason": "useBookmarks 云端化重写需遵循 hook 约定（进度同步/书签/本地偏好的既有模式）"}
+{"file": ".trellis/spec/web/frontend/type-safety.md", "reason": "前端使用 shared DTO 与 ApiError 的类型安全约定"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "书签数据流跨 shared/api/web 三层，需按跨层清单核对"}

@@ -1,0 +1,31 @@
+{
+  "id": "yudu-enhancements",
+  "name": "yudu-enhancements",
+  "title": "雨读体验优化与功能增强",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "0401lucky",
+  "assignee": "0401lucky",
+  "createdAt": "2026-07-24",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "feat/yudu-reader",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "07-24-bookmarks-sync",
+    "07-24-in-book-search",
+    "07-24-reading-stats",
+    "07-24-pdf-support"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
