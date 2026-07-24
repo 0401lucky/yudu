@@ -65,7 +65,7 @@ export default function TocDrawer({
                     }}
                     className={`w-full px-3 py-3 text-left text-sm leading-snug transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)] sm:px-4 sm:py-2.5 ${
                       active
-                        ? "bg-[var(--accent)]/15 text-[var(--accent)]"
+                        ? "bg-[color:color-mix(in_srgb,var(--accent)_15%,transparent)] text-[var(--accent)]"
                         : "text-[var(--text)] hover:bg-[var(--bg)]"
                     }`}
                   >
@@ -139,7 +139,7 @@ function TabButton({
       onClick={onClick}
       className={`flex h-10 items-center rounded-lg px-3 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
         active
-          ? "bg-[var(--accent)]/15 font-medium text-[var(--accent)]"
+          ? "bg-[color:color-mix(in_srgb,var(--accent)_15%,transparent)] font-medium text-[var(--accent)]"
           : "text-[var(--text-muted)] hover:text-[var(--text)]"
       }`}
     >

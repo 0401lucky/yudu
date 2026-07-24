@@ -7,6 +7,8 @@ interface HeaderProps {
   bookmarked: boolean;
   onOpenToc: () => void;
   onToggleBookmark: () => void;
+  /** 打开书内搜索；不传则隐藏入口（如 pdf 格式） */
+  onOpenSearch?: () => void;
 }
 
 /** 顶栏：参与文档流，不再 fixed，避免挡住正文 */
@@ -17,6 +19,7 @@ export function ReaderHeader({
   bookmarked,
   onOpenToc,
   onToggleBookmark,
+  onOpenSearch,
 }: HeaderProps) {
   if (!visible) return null;
   return (
@@ -36,6 +39,16 @@ export function ReaderHeader({
             {chapterTitle}
           </p>
         </div>
+        {onOpenSearch ? (
+          <button
+            type="button"
+            onClick={onOpenSearch}
+            aria-label="搜索本书"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          >
+            <SearchIcon />
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={onToggleBookmark}
@@ -137,6 +150,25 @@ function BookmarkIcon({ filled }: { filled: boolean }) {
       aria-hidden
     >
       <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="M21 21l-4.35-4.35" />
     </svg>
   );
 }

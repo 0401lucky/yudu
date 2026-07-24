@@ -1,16 +1,28 @@
-import type { BookDetail, BookmarkDto, ChapterContent } from "@yudu/shared";
+import type {
+  BookDetail,
+  BookmarkDto,
+  BookSearchMatch,
+  ChapterContent,
+} from "@yudu/shared";
 import { MAX_BOOKMARK_LABEL_CHARS } from "@yudu/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ReaderFooter, ReaderHeader } from "../components/ReaderChrome";
 import ReaderSettingsSheet from "../components/ReaderSettingsSheet";
 import ReaderViewport from "../components/ReaderViewport";
+import SearchDrawer from "../components/SearchDrawer";
 import TocDrawer from "../components/TocDrawer";
 import { useThemePrefs } from "../components/ThemeProvider";
 import { useBookmarks } from "../hooks/useBookmarks";
 import { useLocalReaderPrefs } from "../hooks/useLocalReaderPrefs";
 import { useProgressSync } from "../hooks/useProgressSync";
-import { ApiError, getBook, getChapter, getProgress } from "../lib/api";
+import {
+  ApiError,
+  getBook,
+  getChapter,
+  getProgress,
+  searchBook,
+} from "../lib/api";
 import { mdPlainLengthApprox } from "../lib/mdRender";
 
 /** 换章后想落到的页：数字=具体页；"last"=末页；对象=按字符偏移落页；null=不指定 */
@@ -29,6 +41,7 @@ export default function ReaderPage() {
   const [pageCount, setPageCount] = useState(1);
   const [chromeVisible, setChromeVisible] = useState(true);
   const [tocOpen, setTocOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -151,9 +164,16 @@ export default function ReaderPage() {
   const onPrev = useCallback(() => goToPage(pageIndex - 1), [goToPage, pageIndex]);
   const onNext = useCallback(() => goToPage(pageIndex + 1), [goToPage, pageIndex]);
 
-  // 键盘翻页
+  // 键盘翻页；文本输入场景（如搜索框）豁免，避免劫持光标移动
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const target = e.target;
+      const isTextInput =
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          target.tagName === "TEXTAREA" ||
+          (target instanceof HTMLInputElement && target.type !== "range"));
+      if (isTextInput) return;
       if (e.key === "ArrowLeft") {
         e.preventDefault();
         onPrev();
@@ -274,6 +294,27 @@ export default function ReaderPage() {
     [chapterIndex, textLen, pageCount, jumpToChapter],
   );
 
+  // 搜索结果跳转：与书签同款近似落位（同章直接换算页，跨章走 charOffset 变体）
+  const onSelectSearchMatch = useCallback(
+    (match: BookSearchMatch) => {
+      if (match.chapterIndex === chapterIndex) {
+        const page =
+          textLen > 0
+            ? Math.floor((match.charOffset / textLen) * pageCount)
+            : 0;
+        setPageIndex(Math.min(Math.max(0, page), Math.max(0, pageCount - 1)));
+      } else {
+        jumpToChapter(match.chapterIndex, { charOffset: match.charOffset });
+      }
+    },
+    [chapterIndex, textLen, pageCount, jumpToChapter],
+  );
+
+  const onSearch = useCallback(
+    (q: string) => searchBook(bookId ?? "", q),
+    [bookId],
+  );
+
   // 书签增删失败提示：短暂展示后自动消失
   useEffect(() => {
     if (!bookmarkError) return;
@@ -315,6 +356,9 @@ export default function ReaderPage() {
         bookmarked={currentBookmarked}
         onOpenToc={() => setTocOpen(true)}
         onToggleBookmark={onToggleBookmark}
+        onOpenSearch={
+          book.format !== "pdf" ? () => setSearchOpen(true) : undefined
+        }
       />
 
       <div className="relative min-h-0 flex-1 overflow-hidden">
@@ -374,6 +418,16 @@ export default function ReaderPage() {
         onSelectBookmark={onSelectBookmark}
         onRemoveBookmark={removeBookmark}
       />
+
+      {book.format !== "pdf" ? (
+        <SearchDrawer
+          open={searchOpen}
+          chapters={book.chapters}
+          onClose={() => setSearchOpen(false)}
+          onSearch={onSearch}
+          onSelectMatch={onSelectSearchMatch}
+        />
+      ) : null}
 
       <ReaderSettingsSheet
         open={settingsOpen}

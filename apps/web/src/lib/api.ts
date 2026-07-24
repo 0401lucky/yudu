@@ -2,6 +2,7 @@ import type {
   ApiErrorBody,
   BookDetail,
   BookmarkDto,
+  BookSearchResult,
   BookSummary,
   ChapterContent,
   ReadingProgress,
@@ -154,6 +155,16 @@ export function getChapter(
 ): Promise<ChapterContent> {
   return api<ChapterContent>(
     `/api/books/${encodeURIComponent(bookId)}/chapters/${index}`,
+  );
+}
+
+/** 书内全文搜索（关键词 2-50 字符，大小写不敏感） */
+export function searchBook(
+  bookId: string,
+  q: string,
+): Promise<BookSearchResult> {
+  return api<BookSearchResult>(
+    `/api/books/${encodeURIComponent(bookId)}/search?q=${encodeURIComponent(q)}`,
   );
 }
 

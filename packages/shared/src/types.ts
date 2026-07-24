@@ -72,6 +72,29 @@ export interface UserPreferences {
   pageMargin: "compact" | "normal" | "relaxed";
 }
 
+/** 书内全文搜索：单条命中 */
+export interface BookSearchMatch {
+  chapterIndex: number;
+  chapterTitle: string;
+  /**
+   * 命中点在该章的字符索引；与章节 charCount 同坐标系
+   * （md 书为渲染近似纯文本口径，其余为源文口径）
+   */
+  charOffset: number;
+  /** 上下文摘录（命中点前后各约 30 字符，空白折叠为空格） */
+  excerpt: string;
+  /** 关键词在 excerpt 中的起始索引（前端高亮用） */
+  keywordStart: number;
+}
+
+/** 书内全文搜索：响应 */
+export interface BookSearchResult {
+  query: string;
+  matches: BookSearchMatch[];
+  /** 是否因全书命中上限截断 */
+  truncated: boolean;
+}
+
 export interface ApiErrorBody {
   error: { code: string; message: string };
 }

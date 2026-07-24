@@ -3,7 +3,7 @@
   "name": "in-book-search",
   "title": "书内全文搜索",
   "description": "一本书内关键词搜索，结果摘录与跳转",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

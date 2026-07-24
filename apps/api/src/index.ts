@@ -5,6 +5,7 @@ import { bookmarksRoutes } from "./routes/bookmarks";
 import { booksRoutes } from "./routes/books";
 import { preferencesRoutes } from "./routes/preferences";
 import { progressRoutes } from "./routes/progress";
+import { searchRoutes } from "./routes/search";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -31,6 +32,8 @@ app.route("/api", meRoutes);
 app.route("/api/books", booksRoutes);
 // 书签挂在 /api/books/:id/bookmarks；booksRoutes 未匹配的子路径落到这里
 app.route("/api/books", bookmarksRoutes);
+// 书内搜索挂在 /api/books/:id/search，同前缀挂载
+app.route("/api/books", searchRoutes);
 app.route("/api/progress", progressRoutes);
 app.route("/api/preferences", preferencesRoutes);
 

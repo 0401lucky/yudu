@@ -1,1 +1,6 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/api/backend/directory-structure.md", "reason": "search 路由的放置与挂载约定"}
+{"file": ".trellis/spec/api/backend/error-handling.md", "reason": "搜索 API 错误码（INVALID_QUERY/UNSUPPORTED_FORMAT）与错误体约定"}
+{"file": ".trellis/spec/shared/library/type-contracts.md", "reason": "BookSearchMatch/BookSearchResult 共享类型契约"}
+{"file": ".trellis/spec/web/frontend/component-guidelines.md", "reason": "SearchDrawer 需复用 TocDrawer 抽屉交互模式与主题 token 约定"}
+{"file": ".trellis/spec/web/frontend/type-safety.md", "reason": "前端使用 shared DTO 与 ApiError 的类型安全约定"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "搜索数据流跨 shared/api/web 三层核对"}
