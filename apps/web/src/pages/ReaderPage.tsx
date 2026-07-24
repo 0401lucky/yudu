@@ -16,6 +16,7 @@ import { useThemePrefs } from "../components/ThemeProvider";
 import { useBookmarks } from "../hooks/useBookmarks";
 import { useLocalReaderPrefs } from "../hooks/useLocalReaderPrefs";
 import { useProgressSync } from "../hooks/useProgressSync";
+import { useReadingClock } from "../hooks/useReadingClock";
 import {
   ApiError,
   getBook,
@@ -33,6 +34,8 @@ export default function ReaderPage() {
   const { prefs, setPrefs } = useThemePrefs();
   const { localPrefs, setLocalPrefs } = useLocalReaderPrefs();
   const { schedule } = useProgressSync(bookId);
+  // 阅读时长统计：与进度同步互不干扰（独立 timer），所有格式（含 PDF）均计时
+  useReadingClock();
 
   const [book, setBook] = useState<BookDetail | null>(null);
   const [chapter, setChapter] = useState<ChapterContent | null>(null);

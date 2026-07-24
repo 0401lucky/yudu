@@ -95,6 +95,17 @@ export interface BookSearchResult {
   truncated: boolean;
 }
 
+/** 单日阅读时长；date 为用户本地日期 YYYY-MM-DD */
+export interface DailyReadingStat {
+  date: string;
+  seconds: number;
+}
+
+/** 阅读统计查询响应：仅含非零记录（稀疏，前端自行补零） */
+export interface ReadingStatsResponse {
+  days: DailyReadingStat[];
+}
+
 export interface ApiErrorBody {
   error: { code: string; message: string };
 }

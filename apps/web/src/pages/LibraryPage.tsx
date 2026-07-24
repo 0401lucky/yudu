@@ -1,11 +1,13 @@
-import type { BookSummary } from "@yudu/shared";
+import type { BookSummary, DailyReadingStat } from "@yudu/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import BookCard from "../components/BookCard";
 import ImportDropzone from "../components/ImportDropzone";
+import ReadingStatsBar from "../components/ReadingStatsBar";
 import {
   ApiError,
   deleteBook,
+  getReadingStats,
   importBooks,
   listBooks,
   reparseBook,
@@ -26,6 +28,26 @@ export default function LibraryPage() {
   const [error, setError] = useState<string | null>(null);
   const [pollEpoch, setPollEpoch] = useState(0);
   const pollEpochRef = useRef(0);
+  // 阅读统计：null = 加载中；"error" = 拉取失败（静默隐藏统计条）
+  const [statsDays, setStatsDays] = useState<
+    DailyReadingStat[] | null | "error"
+  >(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await getReadingStats();
+        if (!cancelled) setStatsDays(res.days);
+      } catch {
+        // 统计非关键数据，失败静默降级
+        if (!cancelled) setStatsDays("error");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const refreshBooks = useCallback(async (): Promise<BookSummary[]> => {
     const list = await listBooks();
@@ -219,6 +241,8 @@ export default function LibraryPage() {
       </header>
 
       <section className="mx-auto mt-8 max-w-6xl">
+        {statsDays !== "error" ? <ReadingStatsBar days={statsDays} /> : null}
+
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="text-2xl font-medium text-[var(--text)]">我的书架</h2>

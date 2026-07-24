@@ -5,7 +5,9 @@ import type {
   BookSearchResult,
   BookSummary,
   ChapterContent,
+  DailyReadingStat,
   ReadingProgress,
+  ReadingStatsResponse,
   UserPreferences,
   UserPublic,
 } from "@yudu/shared";
@@ -229,4 +231,23 @@ export function deleteBookmark(bookId: string, id: string): Promise<void> {
     `/api/books/${encodeURIComponent(bookId)}/bookmarks/${encodeURIComponent(id)}`,
     { method: "DELETE" },
   );
+}
+
+/** 上报阅读时长增量；date 为用户本地日期 YYYY-MM-DD，seconds 为 1–300 整数 */
+export function postReadingTime(body: {
+  date: string;
+  seconds: number;
+}): Promise<DailyReadingStat> {
+  return api<DailyReadingStat>("/api/stats/reading", {
+    method: "POST",
+    body: JSON.stringify(body),
+    // pagehide/关标签时的最后一笔 flush 依赖 keepalive 才能在页面卸载后送达
+    keepalive: true,
+  });
+}
+
+/** 查询近 N 天阅读时长（仅非零记录，稀疏数组） */
+export function getReadingStats(days?: number): Promise<ReadingStatsResponse> {
+  const query = days != null ? `?days=${days}` : "";
+  return api<ReadingStatsResponse>(`/api/stats/reading${query}`);
 }

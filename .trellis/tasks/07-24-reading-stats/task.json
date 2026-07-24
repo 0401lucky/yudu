@@ -3,7 +3,7 @@
   "name": "reading-stats",
   "title": "阅读统计热力图",
   "description": "每日阅读时长记录与 GitHub 风格热力图",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

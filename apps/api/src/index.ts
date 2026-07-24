@@ -6,6 +6,7 @@ import { booksRoutes } from "./routes/books";
 import { preferencesRoutes } from "./routes/preferences";
 import { progressRoutes } from "./routes/progress";
 import { searchRoutes } from "./routes/search";
+import { statsRoutes } from "./routes/stats";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -36,6 +37,7 @@ app.route("/api/books", bookmarksRoutes);
 app.route("/api/books", searchRoutes);
 app.route("/api/progress", progressRoutes);
 app.route("/api/preferences", preferencesRoutes);
+app.route("/api/stats", statsRoutes);
 
 /**
  * 非 /api 请求交给 Workers Assets（SPA）。

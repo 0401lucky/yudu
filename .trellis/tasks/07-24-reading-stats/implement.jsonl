@@ -1,1 +1,7 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/api/backend/database-guidelines.md", "reason": "新增 reading_stats_daily 表的 D1 迁移规范"}
+{"file": ".trellis/spec/api/backend/directory-structure.md", "reason": "stats 路由放置与挂载约定"}
+{"file": ".trellis/spec/api/backend/error-handling.md", "reason": "统计 API 错误体与错误码约定"}
+{"file": ".trellis/spec/shared/library/type-contracts.md", "reason": "DailyReadingStat/ReadingStatsResponse 共享类型契约"}
+{"file": ".trellis/spec/web/frontend/hook-guidelines.md", "reason": "useReadingClock 需参照 useProgressSync 的 flush 模式约定"}
+{"file": ".trellis/spec/web/frontend/component-guidelines.md", "reason": "StatsBar/Heatmap 组件的主题 token 与展示组件约定"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "统计数据流跨三层核对"}
