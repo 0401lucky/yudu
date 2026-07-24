@@ -56,6 +56,15 @@ export interface ReadingProgress {
   updatedAt: number;
 }
 
+/** 云端书签；锚点为章内近似字符偏移（与进度同步同款换算） */
+export interface BookmarkDto {
+  id: string;
+  chapterIndex: number;
+  charOffset: number;
+  label: string;
+  createdAt: number;
+}
+
 export interface UserPreferences {
   theme: ThemeId;
   fontSize: number;

@@ -17,7 +17,8 @@
 | 场景 | status | code 示例 | 出处 |
 |------|--------|-----------|------|
 | JSON/表单解析失败 | 400 | `INVALID_BODY` | auth / progress / preferences / import |
-| 字段校验失败 | 400 | `VALIDATION_ERROR`、`INVALID_PROGRESS`、`INVALID_PREF` | 各路由 |
+| 字段校验失败 | 400 | `VALIDATION_ERROR`、`INVALID_PROGRESS`、`INVALID_PREF`、`INVALID_BOOKMARK` | 各路由 |
+| 单书书签超上限 | 400 | `BOOKMARK_LIMIT` | bookmarks |
 | 缺文件 / 过大 / 格式 | 400 | `MISSING_FILE`、`FILE_TOO_LARGE`、`UNSUPPORTED_FORMAT`、`EMPTY_FILE` | import |
 | 未登录 | 401 | `UNAUTHORIZED` | authMiddleware、me |
 | 邮箱或密码错误 | 401 | `INVALID_CREDENTIALS` | login（不暴露是否存在邮箱） |

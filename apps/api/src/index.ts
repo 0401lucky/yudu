@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { Env } from "./env";
 import { authRoutes, meRoutes } from "./routes/auth";
+import { bookmarksRoutes } from "./routes/bookmarks";
 import { booksRoutes } from "./routes/books";
 import { preferencesRoutes } from "./routes/preferences";
 import { progressRoutes } from "./routes/progress";
@@ -28,6 +29,8 @@ app.get("/api/health", (c) => c.json({ ok: true, name: "雨读" }));
 app.route("/api/auth", authRoutes);
 app.route("/api", meRoutes);
 app.route("/api/books", booksRoutes);
+// 书签挂在 /api/books/:id/bookmarks；booksRoutes 未匹配的子路径落到这里
+app.route("/api/books", bookmarksRoutes);
 app.route("/api/progress", progressRoutes);
 app.route("/api/preferences", preferencesRoutes);
 

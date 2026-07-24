@@ -1,6 +1,7 @@
 import type {
   ApiErrorBody,
   BookDetail,
+  BookmarkDto,
   BookSummary,
   ChapterContent,
   ReadingProgress,
@@ -190,4 +191,31 @@ export function putPreferences(
     method: "PUT",
     body: JSON.stringify(body),
   });
+}
+
+export function listBookmarks(bookId: string): Promise<BookmarkDto[]> {
+  return api<BookmarkDto[]>(
+    `/api/books/${encodeURIComponent(bookId)}/bookmarks`,
+  );
+}
+
+/** 创建书签；同锚点重复创建时服务端幂等返回已有记录 */
+export function createBookmark(
+  bookId: string,
+  body: { chapterIndex: number; charOffset: number; label: string },
+): Promise<BookmarkDto> {
+  return api<BookmarkDto>(
+    `/api/books/${encodeURIComponent(bookId)}/bookmarks`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export function deleteBookmark(bookId: string, id: string): Promise<void> {
+  return api<void>(
+    `/api/books/${encodeURIComponent(bookId)}/bookmarks/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+  );
 }

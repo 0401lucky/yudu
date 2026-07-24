@@ -7,7 +7,7 @@
 | `useAuth` | `lib/auth.tsx` | 会话用户、login/register/logout/refresh |
 | `useThemePrefs` | `components/ThemeProvider.tsx` | 云端 `UserPreferences` + DOM 主题 |
 | `useProgressSync` | `hooks/useProgressSync.ts` | 阅读进度防抖写入 + 离开页 flush |
-| `useBookmarks` | `hooks/useBookmarks.ts` | **localStorage** 书签（不按用户云同步） |
+| `useBookmarks` | `hooks/useBookmarks.ts` | 云端书签（乐观增删 + 旧 localStorage 数据一次性迁移） |
 | `useLocalReaderPrefs` | `hooks/useLocalReaderPrefs.ts` | 字体族/亮度，**仅本地**，不改 D1 |
 
 ## 编写规则
@@ -25,7 +25,7 @@ export function useAuth(): AuthContextValue {
 ```
 
 4. **本地持久化 key 带前缀**：`yudu.reader.local`、`yudu.reader.bookmarks.${bookId}`；读写 try/catch，失败静默。
-5. **不打断阅读**：`useProgressSync` 的 `putProgress` 失败吞掉；书签写入失败静默。
+5. **不打断阅读**：`useProgressSync` 的 `putProgress` 失败吞掉；书签拉取失败静默降级，增删失败回滚并短暂提示。
 
 ## 进度同步细节
 
@@ -57,5 +57,4 @@ useEffect(() => {
 ## 反模式
 
 - 在 hook 里硬编码完整 API URL（应用 `lib/api.ts`）
-- 把书签误存到后端（当前产品设计为本地）
 - 无清理的 `setInterval` / 未清理的 debounce timer

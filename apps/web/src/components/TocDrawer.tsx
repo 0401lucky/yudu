@@ -1,16 +1,15 @@
-import type { ChapterMeta } from "@yudu/shared";
+import type { BookmarkDto, ChapterMeta } from "@yudu/shared";
 import { useState } from "react";
-import type { Bookmark } from "../hooks/useBookmarks";
 
 interface TocDrawerProps {
   open: boolean;
   chapters: ChapterMeta[];
   currentIndex: number;
-  bookmarks: Bookmark[];
+  bookmarks: BookmarkDto[];
   onClose: () => void;
   onSelect: (index: number) => void;
-  onSelectBookmark: (mark: Bookmark) => void;
-  onRemoveBookmark: (chapterIndex: number, pageInChapter: number) => void;
+  onSelectBookmark: (mark: BookmarkDto) => void;
+  onRemoveBookmark: (mark: BookmarkDto) => void;
 }
 
 export default function TocDrawer({
@@ -84,10 +83,7 @@ export default function TocDrawer({
               </li>
             ) : (
               bookmarks.map((mark) => (
-                <li
-                  key={`${mark.chapterIndex}-${mark.pageInChapter}`}
-                  className="flex items-center"
-                >
+                <li key={mark.id} className="flex items-center">
                   <button
                     type="button"
                     onClick={() => {
@@ -98,14 +94,13 @@ export default function TocDrawer({
                   >
                     <span className="block truncate">{mark.label}</span>
                     <span className="mt-0.5 block text-[11px] text-[var(--text-muted)]">
-                      第 {mark.chapterIndex + 1} 章 · 第 {mark.pageInChapter + 1} 页
+                      第 {mark.chapterIndex + 1} 章 · 约{" "}
+                      {chapterPercent(chapters, mark)}%
                     </span>
                   </button>
                   <button
                     type="button"
-                    onClick={() =>
-                      onRemoveBookmark(mark.chapterIndex, mark.pageInChapter)
-                    }
+                    onClick={() => onRemoveBookmark(mark)}
                     aria-label="删除书签"
                     className="mr-1 flex h-10 w-10 shrink-0 items-center justify-center rounded text-[var(--text-muted)] hover:text-red-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                   >
@@ -119,6 +114,14 @@ export default function TocDrawer({
       </aside>
     </div>
   );
+}
+
+/** 书签在章内的近似百分比位置（展示用） */
+function chapterPercent(chapters: ChapterMeta[], mark: BookmarkDto): number {
+  const charCount =
+    chapters.find((ch) => ch.index === mark.chapterIndex)?.charCount ?? 0;
+  if (charCount <= 0) return 0;
+  return Math.min(100, Math.round((mark.charOffset / charCount) * 100));
 }
 
 function TabButton({

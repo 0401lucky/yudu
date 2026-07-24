@@ -5,3 +5,5 @@ export const SUPPORTED_FORMATS = ["txt", "md", "epub"] as const;
 export type BookFormat = (typeof SUPPORTED_FORMATS)[number] | "pdf";
 export const SESSION_COOKIE = "yudu_session";
 export const SESSION_DAYS = 30;
+/** 书签标签最大长度（前后端共用校验口径） */
+export const MAX_BOOKMARK_LABEL_CHARS = 100;

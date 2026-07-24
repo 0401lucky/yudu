@@ -1,26 +1,26 @@
-import type { BookDetail, ChapterContent } from "@yudu/shared";
-import { useCallback, useEffect, useRef, useState } from "react";
+import type { BookDetail, BookmarkDto, ChapterContent } from "@yudu/shared";
+import { MAX_BOOKMARK_LABEL_CHARS } from "@yudu/shared";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ReaderFooter, ReaderHeader } from "../components/ReaderChrome";
 import ReaderSettingsSheet from "../components/ReaderSettingsSheet";
 import ReaderViewport from "../components/ReaderViewport";
 import TocDrawer from "../components/TocDrawer";
 import { useThemePrefs } from "../components/ThemeProvider";
-import { useBookmarks, type Bookmark } from "../hooks/useBookmarks";
+import { useBookmarks } from "../hooks/useBookmarks";
 import { useLocalReaderPrefs } from "../hooks/useLocalReaderPrefs";
 import { useProgressSync } from "../hooks/useProgressSync";
 import { ApiError, getBook, getChapter, getProgress } from "../lib/api";
 import { mdPlainLengthApprox } from "../lib/mdRender";
 
-/** 换章后想落到的页：数字=具体页；"last"=末页；null=不指定 */
-type PendingPage = number | "last" | null;
+/** 换章后想落到的页：数字=具体页；"last"=末页；对象=按字符偏移落页；null=不指定 */
+type PendingPage = number | "last" | { charOffset: number } | null;
 
 export default function ReaderPage() {
   const { bookId } = useParams<{ bookId: string }>();
   const { prefs, setPrefs } = useThemePrefs();
   const { localPrefs, setLocalPrefs } = useLocalReaderPrefs();
   const { schedule } = useProgressSync(bookId);
-  const { bookmarks, isBookmarked, toggle, remove } = useBookmarks(bookId);
 
   const [book, setBook] = useState<BookDetail | null>(null);
   const [chapter, setChapter] = useState<ChapterContent | null>(null);
@@ -32,6 +32,14 @@ export default function ReaderPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const {
+    bookmarks,
+    add: addBookmark,
+    remove: removeBookmark,
+    error: bookmarkError,
+    clearError: clearBookmarkError,
+  } = useBookmarks(bookId, book?.chapters);
 
   // 换章/恢复进度时，等新章测量出页数后再落位
   const pendingPageRef = useRef<PendingPage>(null);
@@ -85,13 +93,35 @@ export default function ReaderPage() {
     };
   }, [bookId, book, chapterIndex]);
 
+  // 章内近似文本长度：书签/进度的 charOffset 换算基准（md 用近似纯文本长度）
+  const textLen = useMemo(() => {
+    if (!book || !chapter) return 0;
+    return book.format === "md"
+      ? mdPlainLengthApprox(chapter.text)
+      : chapter.text.length;
+  }, [book, chapter]);
+  // 渲染期同步到 ref，保证子组件测量回调（早于父 effect）读到当前章的值
+  const textLenRef = useRef(0);
+  textLenRef.current = textLen;
+
   // 视口测量出本章页数后回调：落位到 pending 页并夹取范围
   const handlePageCount = useCallback((count: number) => {
     setPageCount(count);
     const pending = pendingPageRef.current;
     pendingPageRef.current = null;
     setPageIndex((cur) => {
-      let target = pending === "last" ? count - 1 : pending ?? cur;
+      let target: number;
+      if (pending === "last") {
+        target = count - 1;
+      } else if (typeof pending === "number") {
+        target = pending;
+      } else if (pending !== null) {
+        // charOffset 锚点：按占全章比例换算成页
+        const len = textLenRef.current;
+        target = len > 0 ? Math.floor((pending.charOffset / len) * count) : 0;
+      } else {
+        target = cur;
+      }
       return Math.min(Math.max(0, target), Math.max(0, count - 1));
     });
   }, []);
@@ -140,14 +170,10 @@ export default function ReaderPage() {
   // 供书架列表按字数计算全书百分比（后端要求非负整数）
   useEffect(() => {
     if (!book || !chapter) return;
-    const textLen =
-      book.format === "md"
-        ? mdPlainLengthApprox(chapter.text)
-        : chapter.text.length;
     const approxOffset =
       pageCount > 0 ? Math.round((pageIndex / pageCount) * textLen) : 0;
     schedule(chapterIndex, approxOffset, pageIndex);
-  }, [book, chapter, chapterIndex, pageIndex, pageCount, schedule]);
+  }, [book, chapter, textLen, chapterIndex, pageIndex, pageCount, schedule]);
 
   const jumpToChapter = useCallback((idx: number, page: PendingPage = 0) => {
     pendingPageRef.current = page;
@@ -181,29 +207,79 @@ export default function ReaderPage() {
     [book, totalChapters, chapterIndex, pageCount, jumpToChapter],
   );
 
-  const currentBookmarked = isBookmarked(chapterIndex, pageIndex);
+  // 当前页书签判定：页 p 的 offset 区间为 [p/pageCount*textLen, (p+1)/pageCount*textLen)
+  // 末页上界放开，容纳换算口径差异导致的溢出 offset
+  const currentPageBookmark = useMemo(() => {
+    if (!chapter || pageCount <= 0) return undefined;
+    const lower = (pageIndex / pageCount) * textLen;
+    const upper =
+      pageIndex >= pageCount - 1
+        ? Number.POSITIVE_INFINITY
+        : ((pageIndex + 1) / pageCount) * textLen;
+    return bookmarks.find(
+      (b) =>
+        b.chapterIndex === chapterIndex &&
+        b.charOffset >= lower &&
+        b.charOffset < upper,
+    );
+  }, [bookmarks, chapter, chapterIndex, pageIndex, pageCount, textLen]);
+  const currentBookmarked = Boolean(currentPageBookmark);
+
   const onToggleBookmark = useCallback(() => {
-    const excerpt = chapter?.text
+    if (!chapter) return;
+    if (currentPageBookmark) {
+      void removeBookmark(currentPageBookmark);
+      return;
+    }
+    const excerpt = chapter.text
       .slice(0, 40)
       .replace(/\s+/g, " ")
       .trim();
-    toggle({
+    // 用 ceil 保证 offset 恒落在本页区间 [p/pageCount*textLen, (p+1)/pageCount*textLen)：
+    // round 在小数部分 < 0.5 时会落到上一页区间，导致刚加的书签图标不亮
+    const charOffset =
+      pageCount > 0 ? Math.ceil((pageIndex / pageCount) * textLen) : 0;
+    void addBookmark({
       chapterIndex,
-      pageInChapter: pageIndex,
-      label: chapter?.title || excerpt || `第 ${chapterIndex + 1} 章`,
+      charOffset,
+      label: (
+        chapter.title.trim() ||
+        excerpt ||
+        `第 ${chapterIndex + 1} 章`
+      ).slice(0, MAX_BOOKMARK_LABEL_CHARS),
     });
-  }, [chapter, chapterIndex, pageIndex, toggle]);
+  }, [
+    chapter,
+    currentPageBookmark,
+    removeBookmark,
+    addBookmark,
+    chapterIndex,
+    pageIndex,
+    pageCount,
+    textLen,
+  ]);
 
   const onSelectBookmark = useCallback(
-    (mark: Bookmark) => {
+    (mark: BookmarkDto) => {
       if (mark.chapterIndex === chapterIndex) {
-        setPageIndex(Math.min(mark.pageInChapter, Math.max(0, pageCount - 1)));
+        const page =
+          textLen > 0
+            ? Math.floor((mark.charOffset / textLen) * pageCount)
+            : 0;
+        setPageIndex(Math.min(Math.max(0, page), Math.max(0, pageCount - 1)));
       } else {
-        jumpToChapter(mark.chapterIndex, mark.pageInChapter);
+        jumpToChapter(mark.chapterIndex, { charOffset: mark.charOffset });
       }
     },
-    [chapterIndex, pageCount, jumpToChapter],
+    [chapterIndex, textLen, pageCount, jumpToChapter],
   );
+
+  // 书签增删失败提示：短暂展示后自动消失
+  useEffect(() => {
+    if (!bookmarkError) return;
+    const timer = setTimeout(clearBookmarkError, 3500);
+    return () => clearTimeout(timer);
+  }, [bookmarkError, clearBookmarkError]);
 
   const pageLabel = chapter
     ? `第 ${chapterIndex + 1}/${totalChapters} 章 · ${pageIndex + 1}/${Math.max(pageCount, 1)} 页`
@@ -278,6 +354,16 @@ export default function ReaderPage() {
         />
       ) : null}
 
+      {/* 书签增删失败提示 */}
+      {bookmarkError ? (
+        <div
+          role="alert"
+          className="pointer-events-none fixed left-1/2 top-14 z-50 -translate-x-1/2 rounded-lg bg-black/80 px-4 py-2 text-sm text-white shadow-lg"
+        >
+          {bookmarkError}
+        </div>
+      ) : null}
+
       <TocDrawer
         open={tocOpen}
         chapters={book.chapters}
@@ -286,7 +372,7 @@ export default function ReaderPage() {
         onClose={() => setTocOpen(false)}
         onSelect={(idx) => jumpToChapter(idx, 0)}
         onSelectBookmark={onSelectBookmark}
-        onRemoveBookmark={remove}
+        onRemoveBookmark={removeBookmark}
       />
 
       <ReaderSettingsSheet
