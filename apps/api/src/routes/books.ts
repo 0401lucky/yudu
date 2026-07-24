@@ -345,6 +345,46 @@ booksRoutes.get("/:id/cover", async (c) => {
   return c.body(obj.body, 200);
 });
 
+/**
+ * GET /api/books/:id/source — 鉴权后流式返回 PDF 原始文件（供前端 pdf.js 渲染）。
+ * 仅对 format='pdf' 开放，避免变成任意源文件下载口。
+ */
+booksRoutes.get("/:id/source", async (c) => {
+  const userId = c.get("userId");
+  const bookId = c.req.param("id");
+
+  const book = await c.env.DB.prepare(
+    `SELECT format, source_r2_key FROM books WHERE id = ? AND user_id = ?`,
+  )
+    .bind(bookId, userId)
+    .first<{ format: string; source_r2_key: string | null }>();
+
+  if (!book) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "书籍不存在" } },
+      404,
+    );
+  }
+  if (book.format !== "pdf" || !book.source_r2_key) {
+    return c.json(
+      { error: { code: "NO_SOURCE", message: "该书籍没有可读取的源文件" } },
+      404,
+    );
+  }
+
+  const obj = await getObject(c.env.BOOKS_BUCKET, book.source_r2_key);
+  if (!obj) {
+    return c.json(
+      { error: { code: "STORAGE_MISSING", message: "源文件缺失" } },
+      404,
+    );
+  }
+
+  c.header("Content-Type", "application/pdf");
+  c.header("Cache-Control", "private, max-age=3600");
+  return c.body(obj.body, 200);
+});
+
 function rowToSummary(row: BookRow): BookSummary {
   return {
     id: row.id,

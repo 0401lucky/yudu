@@ -5,7 +5,15 @@ import type {
   ChapterContent,
 } from "@yudu/shared";
 import { MAX_BOOKMARK_LABEL_CHARS } from "@yudu/shared";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Link, useParams } from "react-router-dom";
 import { ReaderFooter, ReaderHeader } from "../components/ReaderChrome";
 import ReaderSettingsSheet from "../components/ReaderSettingsSheet";
@@ -25,6 +33,9 @@ import {
   searchBook,
 } from "../lib/api";
 import { mdPlainLengthApprox } from "../lib/mdRender";
+
+// pdf.js 体积大（~1MB+），懒加载让它只进独立 chunk，不拖累主 bundle
+const PdfReaderView = lazy(() => import("../components/PdfReaderView"));
 
 /** 换章后想落到的页：数字=具体页；"last"=末页；对象=按字符偏移落页；null=不指定 */
 type PendingPage = number | "last" | { charOffset: number } | null;
@@ -48,6 +59,10 @@ export default function ReaderPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // PDF：文档解析出真实页数前不显示页码（避免"第 1 / 1 页"假数据）
+  const [pdfCountKnown, setPdfCountKnown] = useState(false);
+
+  const isPdf = book?.format === "pdf";
 
   const {
     bookmarks,
@@ -66,6 +81,7 @@ export default function ReaderPage() {
     (async () => {
       setLoading(true);
       setError(null);
+      setPdfCountKnown(false);
       try {
         const [detail, progress] = await Promise.all([
           getBook(bookId),
@@ -93,6 +109,8 @@ export default function ReaderPage() {
 
   useEffect(() => {
     if (!bookId || !book) return;
+    // PDF 无章节（正文即 R2 源文件），跳过章节加载
+    if (book.format === "pdf") return;
     let cancelled = false;
     (async () => {
       try {
@@ -142,8 +160,25 @@ export default function ReaderPage() {
     });
   }, []);
 
+  // PDF 页数上报：走同一落位逻辑，并解锁页码显示
+  const handlePdfPageCount = useCallback(
+    (count: number) => {
+      setPdfCountKnown(true);
+      handlePageCount(count);
+    },
+    [handlePageCount],
+  );
+
   const goToPage = useCallback(
     (nextPage: number) => {
+      // PDF：单文档平铺页，夹取范围内直接跳页（无跨章语义）
+      if (isPdf) {
+        if (pendingPageRef.current !== null) return;
+        setPageIndex(
+          Math.min(Math.max(0, nextPage), Math.max(0, pageCount - 1)),
+        );
+        return;
+      }
       if (!book || !chapter) return;
       // 章节切换后正等待新章测量，忽略翻页，避免连按跳过整章
       if (pendingPageRef.current !== null) return;
@@ -161,7 +196,7 @@ export default function ReaderPage() {
       }
       setPageIndex(nextPage);
     },
-    [book, chapter, chapterIndex, pageCount],
+    [book, chapter, chapterIndex, pageCount, isPdf],
   );
 
   const onPrev = useCallback(() => goToPage(pageIndex - 1), [goToPage, pageIndex]);
@@ -198,6 +233,14 @@ export default function ReaderPage() {
     schedule(chapterIndex, approxOffset, pageIndex);
   }, [book, chapter, textLen, chapterIndex, pageIndex, pageCount, schedule]);
 
+  // PDF 进度：chapterIndex/charOffset 恒 0，pageInChapter=当前页；
+  // 恢复页落位（pendingPageRef 消费完）前不上报，避免把云端进度覆盖回第 0 页
+  useEffect(() => {
+    if (!book || book.format !== "pdf") return;
+    if (pendingPageRef.current !== null) return;
+    schedule(0, 0, pageIndex);
+  }, [book, pageIndex, pageCount, schedule]);
+
   const jumpToChapter = useCallback((idx: number, page: PendingPage = 0) => {
     pendingPageRef.current = page;
     setChapterIndex(idx);
@@ -212,6 +255,16 @@ export default function ReaderPage() {
 
   const onSeek = useCallback(
     (ratio: number) => {
+      // PDF：按比例直接落到目标页
+      if (isPdf) {
+        if (pageCount <= 0 || pendingPageRef.current !== null) return;
+        const target = Math.min(
+          Math.max(0, Math.floor(ratio * pageCount)),
+          pageCount - 1,
+        );
+        setPageIndex(target);
+        return;
+      }
       if (!book || totalChapters <= 0) return;
       const idx = Math.min(
         Math.max(0, Math.floor(ratio * totalChapters)),
@@ -227,7 +280,7 @@ export default function ReaderPage() {
         jumpToChapter(idx, 0);
       }
     },
-    [book, totalChapters, chapterIndex, pageCount, jumpToChapter],
+    [book, totalChapters, chapterIndex, pageCount, jumpToChapter, isPdf],
   );
 
   // 当前页书签判定：页 p 的 offset 区间为 [p/pageCount*textLen, (p+1)/pageCount*textLen)
@@ -325,9 +378,13 @@ export default function ReaderPage() {
     return () => clearTimeout(timer);
   }, [bookmarkError, clearBookmarkError]);
 
-  const pageLabel = chapter
-    ? `第 ${chapterIndex + 1}/${totalChapters} 章 · ${pageIndex + 1}/${Math.max(pageCount, 1)} 页`
-    : "";
+  const pageLabel = isPdf
+    ? pdfCountKnown
+      ? `第 ${pageIndex + 1} / ${Math.max(pageCount, 1)} 页`
+      : ""
+    : chapter
+      ? `第 ${chapterIndex + 1}/${totalChapters} 章 · ${pageIndex + 1}/${Math.max(pageCount, 1)} 页`
+      : "";
 
   if (loading) {
     return (
@@ -357,27 +414,53 @@ export default function ReaderPage() {
         title={book.title}
         chapterTitle={chapter?.title ?? ""}
         bookmarked={currentBookmarked}
-        onOpenToc={() => setTocOpen(true)}
-        onToggleBookmark={onToggleBookmark}
-        onOpenSearch={
-          book.format !== "pdf" ? () => setSearchOpen(true) : undefined
-        }
+        onOpenToc={!isPdf ? () => setTocOpen(true) : undefined}
+        onToggleBookmark={!isPdf ? onToggleBookmark : undefined}
+        onOpenSearch={!isPdf ? () => setSearchOpen(true) : undefined}
       />
 
       <div className="relative min-h-0 flex-1 overflow-hidden">
-        <ReaderViewport
-          text={chapter?.text ?? ""}
-          contentMode={book.format === "md" ? "markdown" : "plain"}
-          pageIndex={pageIndex}
-          fontSize={prefs.fontSize}
-          lineHeight={prefs.lineHeight}
-          fontFamily={localPrefs.fontFamily}
-          pageMargin={prefs.pageMargin}
-          onPageCount={handlePageCount}
-          onPrev={onPrev}
-          onNext={onNext}
-          onToggleChrome={() => setChromeVisible((v) => !v)}
-        />
+        {isPdf ? (
+          <Suspense
+            fallback={
+              <div
+                role="status"
+                className="flex h-full w-full flex-col items-center justify-center gap-3"
+              >
+                <span
+                  aria-hidden
+                  className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--accent)]"
+                />
+                <p className="text-sm text-[var(--text-muted)]">
+                  正在打开 PDF…
+                </p>
+              </div>
+            }
+          >
+            <PdfReaderView
+              bookId={book.id}
+              pageIndex={pageIndex}
+              onPageCount={handlePdfPageCount}
+              onPrev={onPrev}
+              onNext={onNext}
+              onToggleChrome={() => setChromeVisible((v) => !v)}
+            />
+          </Suspense>
+        ) : (
+          <ReaderViewport
+            text={chapter?.text ?? ""}
+            contentMode={book.format === "md" ? "markdown" : "plain"}
+            pageIndex={pageIndex}
+            fontSize={prefs.fontSize}
+            lineHeight={prefs.lineHeight}
+            fontFamily={localPrefs.fontFamily}
+            pageMargin={prefs.pageMargin}
+            onPageCount={handlePageCount}
+            onPrev={onPrev}
+            onNext={onNext}
+            onToggleChrome={() => setChromeVisible((v) => !v)}
+          />
+        )}
       </div>
 
       <ReaderFooter
@@ -389,7 +472,7 @@ export default function ReaderPage() {
         onToggleTheme={() =>
           void setPrefs({ theme: prefs.theme === "night" ? "paper" : "night" })
         }
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSettings={!isPdf ? () => setSettingsOpen(true) : undefined}
       />
 
       {/* 亮度蒙层：固定定位，pointer-events-none，不压暗菜单（z 低于抽屉/面板） */}
@@ -411,18 +494,20 @@ export default function ReaderPage() {
         </div>
       ) : null}
 
-      <TocDrawer
-        open={tocOpen}
-        chapters={book.chapters}
-        currentIndex={chapterIndex}
-        bookmarks={bookmarks}
-        onClose={() => setTocOpen(false)}
-        onSelect={(idx) => jumpToChapter(idx, 0)}
-        onSelectBookmark={onSelectBookmark}
-        onRemoveBookmark={removeBookmark}
-      />
+      {!isPdf ? (
+        <TocDrawer
+          open={tocOpen}
+          chapters={book.chapters}
+          currentIndex={chapterIndex}
+          bookmarks={bookmarks}
+          onClose={() => setTocOpen(false)}
+          onSelect={(idx) => jumpToChapter(idx, 0)}
+          onSelectBookmark={onSelectBookmark}
+          onRemoveBookmark={removeBookmark}
+        />
+      ) : null}
 
-      {book.format !== "pdf" ? (
+      {!isPdf ? (
         <SearchDrawer
           open={searchOpen}
           chapters={book.chapters}
@@ -432,14 +517,16 @@ export default function ReaderPage() {
         />
       ) : null}
 
-      <ReaderSettingsSheet
-        open={settingsOpen}
-        prefs={prefs}
-        localPrefs={localPrefs}
-        onClose={() => setSettingsOpen(false)}
-        onPrefs={(partial) => void setPrefs(partial)}
-        onLocalPrefs={setLocalPrefs}
-      />
+      {!isPdf ? (
+        <ReaderSettingsSheet
+          open={settingsOpen}
+          prefs={prefs}
+          localPrefs={localPrefs}
+          onClose={() => setSettingsOpen(false)}
+          onPrefs={(partial) => void setPrefs(partial)}
+          onLocalPrefs={setLocalPrefs}
+        />
+      ) : null}
     </main>
   );
 }

@@ -101,12 +101,14 @@ export async function importBooksBatch(
   }
 
   const validated: GroupItem[] = [];
+  /** PDF 非章节化：不参与系列分组，一文件一书（短路早返回，不进解析路径） */
+  const pdfFiles: UploadFile[] = [];
   for (const file of files) {
     const format = detectFormat(file.name);
-    if (!format || format === "pdf") {
+    if (!format) {
       throw new ImportValidationError(
         "UNSUPPORTED_FORMAT",
-        `不支持的文件：${file.name}（仅 txt、md、epub）`,
+        `不支持的文件：${file.name}（仅 txt、md、epub、pdf）`,
       );
     }
     if (file.bytes.byteLength > MAX_UPLOAD_BYTES) {
@@ -117,6 +119,10 @@ export async function importBooksBatch(
     }
     if (file.bytes.byteLength === 0) {
       throw new ImportValidationError("EMPTY_FILE", `${file.name} 为空`);
+    }
+    if (format === "pdf") {
+      pdfFiles.push(file);
+      continue;
     }
     validated.push({ file, format });
   }
@@ -141,10 +147,106 @@ export async function importBooksBatch(
   }
 
   const summaries: BookSummary[] = [];
+  for (const file of pdfFiles) {
+    summaries.push(await createPdfBook(env, userId, file));
+  }
   for (const g of groups.values()) {
     summaries.push(await createOrAppendBook(env, userId, g));
   }
   return summaries;
+}
+
+/**
+ * PDF 导入：不解析章节（Workers CPU 限制 + 前端 pdf.js 原样渲染），
+ * 仅存原始文件到 R2，书记录 status='ready'、chapter_count=0、不写 chapters。
+ */
+async function createPdfBook(
+  env: Env,
+  userId: string,
+  file: UploadFile,
+): Promise<BookSummary> {
+  const bookId = crypto.randomUUID();
+  const now = Date.now();
+  const title = pdfTitleFromFilename(file.name);
+  const sourceKey = r2Key.source(userId, bookId, file.name);
+
+  await env.DB.prepare(
+    `INSERT INTO books (
+       id, user_id, title, author, format, cover_r2_key, source_r2_key,
+       status, error_message, chapter_count, created_at, updated_at
+     ) VALUES (?, ?, ?, NULL, 'pdf', NULL, ?, 'processing', NULL, 0, ?, ?)`,
+  )
+    .bind(bookId, userId, title, sourceKey, now, now)
+    .run();
+
+  try {
+    await putBytes(env.BOOKS_BUCKET, sourceKey, file.bytes, "application/pdf");
+
+    // 与其他格式一致：生成 SVG 占位封面（不解析 PDF 内嵌封面）
+    const coverKey = r2Key.cover(userId, bookId);
+    const svg = generateCoverSvg(title, null);
+    await putBytes(
+      env.BOOKS_BUCKET,
+      coverKey,
+      svg,
+      "image/svg+xml; charset=utf-8",
+    );
+
+    const readyAt = Date.now();
+    await env.DB.prepare(
+      `UPDATE books SET
+         cover_r2_key = ?, status = 'ready', error_message = NULL, updated_at = ?
+       WHERE id = ? AND user_id = ?`,
+    )
+      .bind(coverKey, readyAt, bookId, userId)
+      .run();
+
+    return {
+      id: bookId,
+      title,
+      author: null,
+      format: "pdf",
+      coverUrl: `/api/books/${bookId}/cover`,
+      status: "ready",
+      errorMessage: null,
+      chapterCount: 0,
+      progressPercent: null,
+      updatedAt: readyAt,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const failedAt = Date.now();
+    try {
+      await env.DB.prepare(
+        `UPDATE books SET status = 'failed', error_message = ?, updated_at = ?
+         WHERE id = ? AND user_id = ?`,
+      )
+        .bind(message.slice(0, 500), failedAt, bookId, userId)
+        .run();
+    } catch {
+      // ignore
+    }
+
+    return {
+      id: bookId,
+      title,
+      author: null,
+      format: "pdf",
+      coverUrl: null,
+      status: "failed",
+      errorMessage: message.slice(0, 500),
+      chapterCount: 0,
+      progressPercent: null,
+      updatedAt: failedAt,
+    };
+  }
+}
+
+/** PDF 书名 = 文件名去扩展名（保留序号等原样信息，不做系列归并） */
+function pdfTitleFromFilename(filename: string): string {
+  const base = filename.replace(/^.*[/\\]/, "");
+  const stem = base.replace(/\.[^.]+$/, "").trim();
+  return stem || "未命名文档";
 }
 
 async function createOrAppendBook(
@@ -172,10 +274,11 @@ async function findReadyBookByTitle(
   title: string,
 ): Promise<ExistingBook | null> {
   // SQLite lower() 对中文无影响；trim 后精确匹配标题
+  // 排除 pdf：PDF 不参与系列追加（同名 PDF 各自成书，文本章节也不得追加到 PDF 书上）
   const row = await env.DB.prepare(
     `SELECT id, title, author, format, cover_r2_key, chapter_count
      FROM books
-     WHERE user_id = ? AND status = 'ready' AND title = ?
+     WHERE user_id = ? AND status = 'ready' AND title = ? AND format != 'pdf'
      ORDER BY updated_at DESC
      LIMIT 1`,
   )
@@ -651,6 +754,13 @@ export async function reparseBook(
 
   if (!book) {
     throw new ReparseError("NOT_FOUND", "书籍不存在", 404);
+  }
+  if (book.format === "pdf") {
+    throw new ReparseError(
+      "UNSUPPORTED_FORMAT",
+      "PDF 书籍不支持重新解析",
+      400,
+    );
   }
   if (book.format !== "md") {
     throw new ReparseError("NOT_MARKDOWN", "仅支持重新解析 Markdown 书籍", 400);

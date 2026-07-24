@@ -3,7 +3,7 @@
   "name": "pdf-support",
   "title": "PDF 支持 MVP",
   "description": "上传 PDF 并用 pdf.js 前端原样分页阅读，进度云同步",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

@@ -5,8 +5,8 @@
 | 符号 | 值 / 含义 | 使用方 |
 |------|-----------|--------|
 | `MAX_UPLOAD_BYTES` | 30MB | api 导入校验；web 可做前端提示 |
-| `SUPPORTED_FORMATS` | `["txt","md","epub"]` | 导入白名单（通用阅读器当前格式） |
-| `BookFormat` | 上述 + 预留 `"pdf"` | 元数据 format；**pdf 未实现解析** |
+| `SUPPORTED_FORMATS` | `["txt","md","epub","pdf"]` | 导入白名单（pdf 为非章节化：仅存源文件） |
+| `BookFormat` | 由 `SUPPORTED_FORMATS` 推导 | 元数据 format |
 | `SESSION_COOKIE` | `"yudu_session"` | api 设/读 Cookie；与 web 间接一致 |
 | `SESSION_DAYS` | `30` | 会话过期与 Cookie maxAge |
 

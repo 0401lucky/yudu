@@ -109,6 +109,13 @@ export default function BookCard({
           </span>
         ) : null}
 
+        {/* PDF 格式徽标：与状态徽标分居两角 */}
+        {book.format === "pdf" ? (
+          <span className="absolute right-2 top-2 rounded bg-[var(--bg)]/80 px-1.5 py-0.5 text-[10px] font-semibold tracking-wider text-[var(--accent)]">
+            PDF
+          </span>
+        ) : null}
+
         {book.status === "processing" ? (
           <div className="absolute inset-0 animate-pulse bg-[var(--accent)]/5" />
         ) : null}
@@ -133,7 +140,9 @@ export default function BookCard({
             {book.status === "ready" && book.progressPercent != null
               ? `${book.progressPercent}%`
               : book.status === "ready"
-                ? "未读"
+                ? book.format === "pdf"
+                  ? "—" // PDF 无章节字数，算不出百分比，显示占位
+                  : "未读"
                 : book.format.toUpperCase()}
           </span>
           <div className="flex items-center gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">

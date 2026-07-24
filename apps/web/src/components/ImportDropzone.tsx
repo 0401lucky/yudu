@@ -1,7 +1,8 @@
 import { MAX_UPLOAD_BYTES, SUPPORTED_FORMATS } from "@yudu/shared";
 import { useCallback, useRef, useState } from "react";
 
-const ACCEPT = ".txt,.md,.markdown,.epub,text/plain,text/markdown,application/epub+zip";
+const ACCEPT =
+  ".txt,.md,.markdown,.epub,.pdf,text/plain,text/markdown,application/epub+zip,application/pdf";
 
 interface ImportDropzoneProps {
   /** 支持多文件；同批「书名-序号」会在服务端合并 */
@@ -73,7 +74,7 @@ export default function ImportDropzone({
           reportError(
             rejected.length
               ? `无法导入：${rejected.join("；")}`
-              : "没有可导入的文件（请选 txt / md / epub）",
+              : "没有可导入的文件（请选 txt / md / epub / pdf）",
           );
           return;
         }
@@ -168,7 +169,7 @@ export default function ImportDropzone({
               : "点击选择文件，或拖拽到此处（可多选）"}
           </p>
           <p className="mt-2 text-sm text-[var(--text-muted)]">
-            支持 txt / md / epub（更多格式规划中）· 最大{" "}
+            支持 txt / md / epub / pdf（更多格式规划中）· 最大{" "}
             {MAX_UPLOAD_BYTES / (1024 * 1024)}
             MB/个
           </p>

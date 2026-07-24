@@ -160,6 +160,27 @@ export function getChapter(
   );
 }
 
+/** 拉取书籍原始源文件（当前仅 PDF 开放）；失败时解析错误体抛 ApiError */
+export async function fetchBookSource(bookId: string): Promise<ArrayBuffer> {
+  const res = await fetch(
+    apiUrl(`/api/books/${encodeURIComponent(bookId)}/source`),
+    { credentials: "include" },
+  );
+  if (!res.ok) {
+    let code = "UNKNOWN";
+    let message = res.statusText || "源文件加载失败";
+    try {
+      const body = (await res.json()) as ApiErrorBody;
+      code = body?.error?.code ?? code;
+      message = body?.error?.message ?? message;
+    } catch {
+      // 非 JSON 错误体，保留默认文案
+    }
+    throw new ApiError(res.status, code, message);
+  }
+  return res.arrayBuffer();
+}
+
 /** 书内全文搜索（关键词 2-50 字符，大小写不敏感） */
 export function searchBook(
   bookId: string,

@@ -24,7 +24,8 @@ apps/api/
 │   └── parsers/
 │       ├── types.ts          # ParseResult / ParsedChapter（新格式统一输出）
 │       ├── txt.ts / md.ts / epub.ts
-│       ├── （规划）pdf.ts    # BookFormat 已预留；实现见 product-positioning
+│       ├── （无 pdf.ts）      # PDF 不走解析器：importBook 短路存 R2 原件，
+│       │                     # routes/books 的 /:id/source 透传给前端 pdf.js
 │       └── *.test.ts
 ├── migrations/
 │   └── 0001_init.sql         # D1 迁移

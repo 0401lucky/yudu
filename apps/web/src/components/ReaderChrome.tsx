@@ -5,8 +5,10 @@ interface HeaderProps {
   title: string;
   chapterTitle: string;
   bookmarked: boolean;
-  onOpenToc: () => void;
-  onToggleBookmark: () => void;
+  /** 打开目录；不传则隐藏入口（如 pdf 格式） */
+  onOpenToc?: () => void;
+  /** 添加/移除书签；不传则隐藏入口（如 pdf 格式） */
+  onToggleBookmark?: () => void;
   /** 打开书内搜索；不传则隐藏入口（如 pdf 格式） */
   onOpenSearch?: () => void;
 }
@@ -49,22 +51,26 @@ export function ReaderHeader({
             <SearchIcon />
           </button>
         ) : null}
-        <button
-          type="button"
-          onClick={onToggleBookmark}
-          aria-label={bookmarked ? "移除书签" : "添加书签"}
-          aria-pressed={bookmarked}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-        >
-          <BookmarkIcon filled={bookmarked} />
-        </button>
-        <button
-          type="button"
-          onClick={onOpenToc}
-          className="flex h-10 shrink-0 items-center rounded px-2.5 text-sm text-[var(--text)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-        >
-          目录
-        </button>
+        {onToggleBookmark ? (
+          <button
+            type="button"
+            onClick={onToggleBookmark}
+            aria-label={bookmarked ? "移除书签" : "添加书签"}
+            aria-pressed={bookmarked}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          >
+            <BookmarkIcon filled={bookmarked} />
+          </button>
+        ) : null}
+        {onOpenToc ? (
+          <button
+            type="button"
+            onClick={onOpenToc}
+            className="flex h-10 shrink-0 items-center rounded px-2.5 text-sm text-[var(--text)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          >
+            目录
+          </button>
+        ) : null}
       </div>
     </header>
   );
@@ -78,7 +84,8 @@ interface FooterProps {
   onSeek: (ratio: number) => void;
   onToggleTheme: () => void;
   themeLabel: string;
-  onOpenSettings: () => void;
+  /** 打开阅读设置；不传则隐藏入口（如 pdf 格式，canvas 不吃字体设置） */
+  onOpenSettings?: () => void;
 }
 
 /** 底栏：进度条 + 页码 + 快捷主题 + 设置入口 */
@@ -121,14 +128,16 @@ export function ReaderFooter({
             >
               {themeLabel}
             </button>
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              className="flex h-10 items-center rounded px-2 text-sm font-medium text-[var(--text)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-              aria-label="阅读设置"
-            >
-              Aa
-            </button>
+            {onOpenSettings ? (
+              <button
+                type="button"
+                onClick={onOpenSettings}
+                className="flex h-10 items-center rounded px-2 text-sm font-medium text-[var(--text)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                aria-label="阅读设置"
+              >
+                Aa
+              </button>
+            ) : null}
           </div>
         </div>
       </div>

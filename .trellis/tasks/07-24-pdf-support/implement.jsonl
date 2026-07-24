@@ -1,1 +1,7 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/guides/product-positioning.md", "reason": "PDF 属新格式扩展，必须按定位文档的「扩展新格式 AI 必做清单」逐项执行（shared→parsers→importBook→web→spec→安全）"}
+{"file": ".trellis/spec/api/backend/directory-structure.md", "reason": "source 路由与导入分支的文件组织约定"}
+{"file": ".trellis/spec/api/backend/error-handling.md", "reason": "source 路由与 reparse 拒绝的错误码约定"}
+{"file": ".trellis/spec/shared/library/type-contracts.md", "reason": "SUPPORTED_FORMATS/BookFormat 变更的契约影响面"}
+{"file": ".trellis/spec/web/frontend/component-guidelines.md", "reason": "PdfReaderView 新组件与 ReaderChrome 复用约定"}
+{"file": ".trellis/spec/web/frontend/directory-structure.md", "reason": "懒加载组件与 lib 的放置约定"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "导入与进度数据流跨层核对"}
