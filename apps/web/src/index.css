@@ -117,6 +117,13 @@ body {
   margin: 0 0 0.85em;
   padding-left: 1.4em;
 }
+/* Tailwind preflight 重置了 list-style，这里恢复列表符号 */
+.reader-md-ul {
+  list-style: disc;
+}
+.reader-md-ol {
+  list-style: decimal;
+}
 .reader-md-li {
   margin: 0.2em 0;
 }
@@ -226,6 +233,25 @@ body {
 }
 .heat-cell:hover {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 45%, transparent);
+}
+
+/* 热力图横向滚动条：细条低调，融入主题 */
+.heat-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.heat-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.heat-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.heat-scroll::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+.heat-scroll::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text) 30%, transparent);
 }
 
 :focus-visible {

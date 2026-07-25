@@ -59,7 +59,7 @@ export default function ReadingHeatmap({ days }: ReadingHeatmapProps) {
 
   return (
     <div>
-      <div ref={scrollRef} className="overflow-x-auto pb-1">
+      <div ref={scrollRef} className="heat-scroll overflow-x-auto pb-1">
         <div
           // pr 给最后一列的月份标签留溢出余量（absolute 定位不计入 w-max 宽度）
           className="w-max pr-4"

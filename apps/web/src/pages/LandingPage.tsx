@@ -37,7 +37,7 @@ export default function LandingPage() {
           </h1>
           <p className="text-lg text-[var(--text)]">雨夜书房 · 通用阅读器</p>
           <p className="max-w-md text-[var(--text-muted)] leading-relaxed mx-auto md:mx-0">
-            导入文档与电子书（txt / md / epub），账号云同步进度。在安静的深色界面里左右翻页——笔记、手册、长文都合适。
+            导入文档与电子书（txt / md / epub / pdf），账号云同步进度与书签。在安静的深色界面里左右翻页——笔记、手册、长文都合适。
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3 md:justify-start">
             <Link

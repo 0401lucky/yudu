@@ -145,7 +145,7 @@ export default function ImportDropzone({
           type="button"
           disabled={disabled}
           onClick={openPicker}
-          className="min-h-[44px] rounded-lg border border-dashed border-[var(--border)] bg-[var(--bg-elevated)] px-4 py-2 text-sm text-[var(--accent)] hover:border-[var(--accent)]/60 disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          className="min-h-[44px] rounded-lg border border-dashed border-[var(--border)] bg-[var(--bg-elevated)] px-4 py-2 text-sm text-[var(--accent)] hover:border-[color:color-mix(in_srgb,var(--accent)_60%,transparent)] disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
         >
           {disabled ? "导入中…" : "导入文件"}
         </button>
@@ -159,8 +159,8 @@ export default function ImportDropzone({
           onDrop={onDrop}
           className={`flex w-full cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-6 py-10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:pointer-events-none disabled:opacity-60 ${
             dragging
-              ? "border-[var(--accent)] bg-[var(--accent)]/10"
-              : "border-[var(--border)] bg-[var(--bg-elevated)] hover:border-[var(--accent)]/60"
+              ? "border-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_10%,transparent)]"
+              : "border-[var(--border)] bg-[var(--bg-elevated)] hover:border-[color:color-mix(in_srgb,var(--accent)_60%,transparent)]"
           }`}
         >
           <p className="text-base text-[var(--text)]">

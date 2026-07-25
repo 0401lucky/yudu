@@ -102,7 +102,7 @@ export default function BookCard({
             className={`absolute left-2 top-2 rounded px-1.5 py-0.5 text-xs font-medium ${
               book.status === "failed"
                 ? "bg-red-900/80 text-red-200"
-                : "bg-[var(--bg)]/80 text-[var(--accent)]"
+                : "bg-[color:color-mix(in_srgb,var(--bg)_80%,transparent)] text-[var(--accent)]"
             }`}
           >
             {badge}
@@ -111,13 +111,13 @@ export default function BookCard({
 
         {/* PDF 格式徽标：与状态徽标分居两角 */}
         {book.format === "pdf" ? (
-          <span className="absolute right-2 top-2 rounded bg-[var(--bg)]/80 px-1.5 py-0.5 text-[10px] font-semibold tracking-wider text-[var(--accent)]">
+          <span className="absolute right-2 top-2 rounded bg-[color:color-mix(in_srgb,var(--bg)_80%,transparent)] px-1.5 py-0.5 text-[10px] font-semibold tracking-wider text-[var(--accent)]">
             PDF
           </span>
         ) : null}
 
         {book.status === "processing" ? (
-          <div className="absolute inset-0 animate-pulse bg-[var(--accent)]/5" />
+          <div className="absolute inset-0 animate-pulse bg-[color:color-mix(in_srgb,var(--accent)_5%,transparent)]" />
         ) : null}
       </div>
 
