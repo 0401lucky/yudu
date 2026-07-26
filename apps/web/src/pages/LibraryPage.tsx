@@ -232,6 +232,12 @@ export default function LibraryPage() {
             }}
           />
           <Link
+            to="/notes"
+            className="rounded text-[var(--text)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          >
+            笔记
+          </Link>
+          <Link
             to="/settings"
             className="rounded text-[var(--text)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
           >

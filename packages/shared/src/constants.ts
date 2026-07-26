@@ -17,3 +17,5 @@ export const MAX_HIGHLIGHTS_PER_BOOK = 500;
 export const MAX_HIGHLIGHT_CHARS = 1000;
 /** 高亮摘录最大长度（超出截断存储） */
 export const MAX_HIGHLIGHT_EXCERPT_CHARS = 120;
+/** 单条高亮笔记最大长度（前后端共用校验口径） */
+export const MAX_HIGHLIGHT_NOTE_CHARS = 500;

@@ -153,6 +153,11 @@ export default function TocDrawer({
                         {hl.excerpt || "（无摘录）"}
                       </span>
                     </span>
+                    {hl.note ? (
+                      <span className="line-clamp-2 mt-1 rounded bg-[var(--bg)] px-1.5 py-1 text-[11px] leading-snug text-[var(--text-muted)]">
+                        {hl.note}
+                      </span>
+                    ) : null}
                     <span className="mt-0.5 block truncate text-[11px] text-[var(--text-muted)]">
                       {chapterTitle(chapters, hl.chapterIndex)}
                     </span>

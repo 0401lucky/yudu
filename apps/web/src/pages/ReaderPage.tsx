@@ -14,7 +14,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
+import NoteEditorSheet from "../components/NoteEditorSheet";
 import { ReaderFooter, ReaderHeader } from "../components/ReaderChrome";
 import ReaderSettingsSheet from "../components/ReaderSettingsSheet";
 import ReaderViewport from "../components/ReaderViewport";
@@ -29,6 +30,7 @@ import { useThemePrefs } from "../components/ThemeProvider";
 import { ASSUMED_PAGE_CHARS, useBookmarks } from "../hooks/useBookmarks";
 import { useChapterWindow } from "../hooks/useChapterWindow";
 import { useHighlights } from "../hooks/useHighlights";
+import type { HighlightAnchorKey } from "../hooks/useReaderHighlights";
 import { useReaderHighlights } from "../hooks/useReaderHighlights";
 import type { LocalReaderPrefs } from "../hooks/useLocalReaderPrefs";
 import { useLocalReaderPrefs } from "../hooks/useLocalReaderPrefs";
@@ -43,8 +45,25 @@ const PdfReaderView = lazy(() => import("../components/PdfReaderView"));
 /** 换章后想落到的页：数字=具体页；"last"=末页；对象=按字符偏移落页；null=不指定 */
 type PendingPage = number | "last" | { charOffset: number } | null;
 
+/** 解析笔记汇总页等外部入口的跳转参数 ?chapter=X&offset=Y（非法时忽略） */
+function parseJumpParams(
+  params: URLSearchParams,
+): { chapter: number; offset: number } | null {
+  const chapter = Number(params.get("chapter"));
+  if (!Number.isInteger(chapter) || chapter < 0 || params.get("chapter") == null) {
+    return null;
+  }
+  const rawOffset = Number(params.get("offset") ?? 0);
+  const offset =
+    Number.isFinite(rawOffset) && rawOffset > 0 ? Math.floor(rawOffset) : 0;
+  return { chapter, offset };
+}
+
 export default function ReaderPage() {
   const { bookId } = useParams<{ bookId: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  // 跳转参数只在进入页面时消费一次；消费后从 URL 移除，刷新时恢复正常进度
+  const jumpParamRef = useRef(parseJumpParams(searchParams));
   const { prefs, setPrefs } = useThemePrefs();
   const { localPrefs, setLocalPrefs } = useLocalReaderPrefs();
   const { schedule } = useProgressSync(bookId);
@@ -92,9 +111,25 @@ export default function ReaderPage() {
     add: addHighlight,
     remove: removeHighlight,
     recolor: recolorHighlight,
+    updateNote: updateHighlightNote,
     error: highlightError,
     clearError: clearHighlightError,
   } = useHighlights(book && !isPdf ? bookId : undefined);
+
+  // 笔记编辑目标：以锚点定位（乐观创建期间 id 会变，锚点不变）
+  const [noteAnchor, setNoteAnchor] = useState<HighlightAnchorKey | null>(null);
+  const noteHl = useMemo(
+    () =>
+      noteAnchor
+        ? (highlights.find(
+            (h) =>
+              h.chapterIndex === noteAnchor.chapterIndex &&
+              h.startOffset === noteAnchor.startOffset &&
+              h.endOffset === noteAnchor.endOffset,
+          ) ?? null)
+        : null,
+    [highlights, noteAnchor],
+  );
 
   // 高亮层：渲染（CSS Custom Highlight API）+ 选区/点击气泡，两种视口共用
   const { bridge: highlightBridge, popover: highlightPopover } =
@@ -104,7 +139,17 @@ export default function ReaderPage() {
       onCreate: addHighlight,
       onRecolor: recolorHighlight,
       onRemove: removeHighlight,
+      onNote: setNoteAnchor,
     });
+
+  const closeNoteEditor = useCallback(() => setNoteAnchor(null), []);
+  const saveNote = useCallback(
+    (text: string) => {
+      if (noteHl) void updateHighlightNote(noteHl, text);
+      setNoteAnchor(null);
+    },
+    [noteHl, updateHighlightNote],
+  );
 
   // 换章/恢复进度时，等新章测量出页数后再落位
   const pendingPageRef = useRef<PendingPage>(null);
@@ -123,14 +168,21 @@ export default function ReaderPage() {
         ]);
         if (cancelled) return;
         setBook(detail);
+        // 外部跳转参数（笔记汇总页等）优先于云端进度；只消费一次
+        const jump = jumpParamRef.current;
+        jumpParamRef.current = null;
+        if (jump) setSearchParams({}, { replace: true });
         const idx = Math.min(
-          Math.max(0, progress.chapterIndex),
+          Math.max(0, jump ? jump.chapter : progress.chapterIndex),
           Math.max(0, detail.chapters.length - 1),
         );
         // 优先 charOffset 锚点（两种模式的公共坐标）；
         // 旧记录 charOffset 为 0 时回退 pageInChapter 按页恢复（含 PDF）
-        const co = Math.max(0, Math.floor(progress.charOffset));
-        const pg = Math.max(0, progress.pageInChapter ?? 0);
+        const co = Math.max(
+          0,
+          Math.floor(jump ? jump.offset : progress.charOffset),
+        );
+        const pg = jump ? 0 : Math.max(0, progress.pageInChapter ?? 0);
         pendingPageRef.current = co > 0 ? { charOffset: co } : pg;
         if (detail.format !== "pdf") {
           // 仅 pageInChapter 可靠的旧记录：按「页号 × 近似页字数」换算滚动锚点
@@ -801,6 +853,16 @@ export default function ReaderPage() {
           onClose={() => setSettingsOpen(false)}
           onPrefs={(partial) => void setPrefs(partial)}
           onLocalPrefs={handleLocalPrefs}
+        />
+      ) : null}
+
+      {!isPdf ? (
+        <NoteEditorSheet
+          open={Boolean(noteHl)}
+          excerpt={noteHl?.excerpt ?? ""}
+          initialNote={noteHl?.note ?? ""}
+          onClose={closeNoteEditor}
+          onSave={saveNote}
         />
       ) : null}
     </main>

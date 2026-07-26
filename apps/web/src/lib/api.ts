@@ -8,6 +8,7 @@ import type {
   DailyReadingStat,
   HighlightColor,
   HighlightDto,
+  NotesBookGroup,
   ReadingProgress,
   ReadingStatsResponse,
   UserPreferences,
@@ -295,6 +296,26 @@ export function patchHighlightColor(
       body: JSON.stringify({ color }),
     },
   );
+}
+
+/** 修改高亮笔记；null / 空串 = 清除笔记 */
+export function updateHighlightNote(
+  bookId: string,
+  id: string,
+  note: string | null,
+): Promise<HighlightDto> {
+  return api<HighlightDto>(
+    `/api/books/${encodeURIComponent(bookId)}/highlights/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ note }),
+    },
+  );
+}
+
+/** 笔记汇总：当前用户全部高亮按书分组（含章节标题） */
+export function getNotes(): Promise<NotesBookGroup[]> {
+  return api<NotesBookGroup[]>("/api/notes");
 }
 
 export function deleteHighlight(bookId: string, id: string): Promise<void> {

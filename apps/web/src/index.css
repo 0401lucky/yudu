@@ -274,6 +274,12 @@ body {
 [data-theme="night"] ::highlight(yudu-hl-blue) {
   background-color: rgb(59 130 246 / 0.32);
 }
+/* 带笔记的高亮：叠加下划虚线标识（不支持 Custom Highlight 装饰的浏览器静默降级） */
+::highlight(yudu-noted) {
+  text-decoration: underline dashed;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
 
 :focus-visible {
   outline: 2px solid var(--accent);

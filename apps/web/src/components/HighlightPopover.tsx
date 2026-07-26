@@ -18,7 +18,11 @@ interface HighlightPopoverProps {
   currentColor?: HighlightColor;
   /** 创建模式选区超长：仅展示提示，不可标注 */
   overLimit?: boolean;
+  /** 编辑模式当前高亮是否已有笔记（决定按钮文案） */
+  hasNote?: boolean;
   onPick: (color: HighlightColor) => void;
+  /** 写想法：create 模式先建高亮再开编辑；edit 模式直接开编辑 */
+  onNote?: () => void;
   onDelete?: () => void;
 }
 
@@ -46,7 +50,9 @@ export default function HighlightPopover({
   mode,
   currentColor,
   overLimit = false,
+  hasNote = false,
   onPick,
+  onNote,
   onDelete,
 }: HighlightPopoverProps) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -107,6 +113,28 @@ export default function HighlightPopover({
               />
             );
           })}
+          {onNote ? (
+            <>
+              <span
+                aria-hidden
+                className="mx-0.5 h-5 w-px bg-[var(--border)]"
+              />
+              <button
+                type="button"
+                aria-label={
+                  mode === "create"
+                    ? "高亮并写想法"
+                    : hasNote
+                      ? "编辑想法"
+                      : "写想法"
+                }
+                onClick={onNote}
+                className="flex h-7 items-center rounded-full px-2 text-sm text-[var(--text-muted)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              >
+                {mode === "create" ? "想法" : hasNote ? "编辑想法" : "写想法"}
+              </button>
+            </>
+          ) : null}
           {mode === "edit" && onDelete ? (
             <>
               <span

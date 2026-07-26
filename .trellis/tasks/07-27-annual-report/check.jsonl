@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/shared/library/type-contracts.md", "reason": "AnnualReportResponse 类型契约"}
+{"file": ".trellis/spec/api/backend/index.md", "reason": "stats 路由扩展规范"}
+{"file": ".trellis/spec/api/backend/quality-guidelines.md", "reason": "聚合 SQL 与测试要求"}
+{"file": ".trellis/spec/web/frontend/index.md", "reason": "ReportPage 页面规范"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "复用 ReadingHeatmap 与 progressPercent 口径"}

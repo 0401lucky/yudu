@@ -4,6 +4,7 @@ import { authRoutes, meRoutes } from "./routes/auth";
 import { bookmarksRoutes } from "./routes/bookmarks";
 import { booksRoutes } from "./routes/books";
 import { highlightsRoutes } from "./routes/highlights";
+import { notesRoutes } from "./routes/notes";
 import { preferencesRoutes } from "./routes/preferences";
 import { progressRoutes } from "./routes/progress";
 import { searchRoutes } from "./routes/search";
@@ -41,6 +42,8 @@ app.route("/api/books", bookmarksRoutes);
 app.route("/api/books", highlightsRoutes);
 // 书内搜索挂在 /api/books/:id/search，同前缀挂载
 app.route("/api/books", searchRoutes);
+// 笔记汇总：当前用户全部高亮按书分组
+app.route("/api/notes", notesRoutes);
 app.route("/api/progress", progressRoutes);
 app.route("/api/preferences", preferencesRoutes);
 app.route("/api/stats", statsRoutes);

@@ -10,6 +10,16 @@ import type { HighlightAnchor } from "./useHighlights";
 /** 视口正文容器标记属性：值为章号（本 hook 据此收集渲染中的章区域） */
 export const HL_CHAPTER_ATTR = "data-hl-chapter";
 
+/** 笔记编辑目标：以锚点定位（乐观创建期间 id 会由 temp 换成真实 id，锚点不变） */
+export interface HighlightAnchorKey {
+  chapterIndex: number;
+  startOffset: number;
+  endOffset: number;
+}
+
+/** 带笔记高亮的叠加标识（下划虚线）命名高亮 */
+const NOTED_HIGHLIGHT_NAME = "yudu-noted";
+
 /** 视口 ↔ 高亮层桥接：视口只需上报重排、转发点击命中 */
 export interface ReaderHighlightBridge {
   /** 正文 DOM 变化（章切换/窗口平移/字号重排）后调用，重建高亮 Range */
@@ -29,6 +39,8 @@ interface UseReaderHighlightsParams {
   onCreate: (anchor: HighlightAnchor) => void;
   onRecolor: (hl: HighlightDto, color: HighlightColor) => void;
   onRemove: (hl: HighlightDto) => void;
+  /** 写想法：打开笔记编辑面板（create 模式已先触发 onCreate） */
+  onNote: (target: HighlightAnchorKey) => void;
 }
 
 type PopoverState =
@@ -162,6 +174,7 @@ export function useReaderHighlights({
   onCreate,
   onRecolor,
   onRemove,
+  onNote,
 }: UseReaderHighlightsParams): {
   bridge: ReaderHighlightBridge;
   popover: ReactNode;
@@ -182,6 +195,8 @@ export function useReaderHighlights({
   onRecolorRef.current = onRecolor;
   const onRemoveRef = useRef(onRemove);
   onRemoveRef.current = onRemove;
+  const onNoteRef = useRef(onNote);
+  onNoteRef.current = onNote;
 
   // 手势状态：选区调整中不弹泡；气泡因外点收起时吞掉该次 tap
   const pointerActiveRef = useRef(false);
@@ -195,9 +210,12 @@ export function useReaderHighlights({
       for (const color of HIGHLIGHT_COLORS) {
         CSS.highlights.delete(highlightName(color));
       }
+      CSS.highlights.delete(NOTED_HIGHLIGHT_NAME);
       return;
     }
     const byColor = new Map<HighlightColor, Range[]>();
+    // 带笔记的高亮叠加一组命名高亮，加下划虚线标识（best-effort）
+    const notedRanges: Range[] = [];
     for (const region of collectRegions()) {
       for (const hl of highlights) {
         if (hl.chapterIndex !== region.chapterIndex) continue;
@@ -206,6 +224,7 @@ export function useReaderHighlights({
         const list = byColor.get(hl.color);
         if (list) list.push(range);
         else byColor.set(hl.color, [range]);
+        if (hl.note != null) notedRanges.push(range);
       }
     }
     for (const color of HIGHLIGHT_COLORS) {
@@ -214,6 +233,7 @@ export function useReaderHighlights({
         new Highlight(...(byColor.get(color) ?? [])),
       );
     }
+    CSS.highlights.set(NOTED_HIGHLIGHT_NAME, new Highlight(...notedRanges));
   }, [enabled, highlights, layoutEpoch]);
 
   // 卸载（离开阅读页）时清理命名高亮
@@ -223,6 +243,7 @@ export function useReaderHighlights({
       for (const color of HIGHLIGHT_COLORS) {
         CSS.highlights.delete(highlightName(color));
       }
+      CSS.highlights.delete(NOTED_HIGHLIGHT_NAME);
     },
     [],
   );
@@ -373,6 +394,35 @@ export function useReaderHighlights({
     setPopover(null);
   }, []);
 
+  const handleNote = useCallback(() => {
+    const p = popoverRef.current;
+    if (!p) return;
+    if (p.kind === "create") {
+      if (p.overLimit) return;
+      // 先按默认色创建高亮（乐观 temp 项），再按锚点打开笔记编辑
+      onCreateRef.current({
+        chapterIndex: p.chapterIndex,
+        startOffset: p.startOffset,
+        endOffset: p.endOffset,
+        color: HIGHLIGHT_COLORS[0],
+        excerpt: p.excerpt,
+      });
+      document.getSelection()?.removeAllRanges();
+      onNoteRef.current({
+        chapterIndex: p.chapterIndex,
+        startOffset: p.startOffset,
+        endOffset: p.endOffset,
+      });
+    } else {
+      onNoteRef.current({
+        chapterIndex: p.highlight.chapterIndex,
+        startOffset: p.highlight.startOffset,
+        endOffset: p.highlight.endOffset,
+      });
+    }
+    setPopover(null);
+  }, []);
+
   const popoverNode: ReactNode = popover
     ? createElement(HighlightPopover, {
         anchor: popover.rect,
@@ -380,7 +430,10 @@ export function useReaderHighlights({
         currentColor:
           popover.kind === "edit" ? popover.highlight.color : undefined,
         overLimit: popover.kind === "create" ? popover.overLimit : false,
+        hasNote:
+          popover.kind === "edit" ? popover.highlight.note != null : false,
         onPick: handlePick,
+        onNote: handleNote,
         onDelete: popover.kind === "edit" ? handleDelete : undefined,
       })
     : null;

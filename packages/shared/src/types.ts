@@ -78,7 +78,20 @@ export interface HighlightDto {
   color: HighlightColor;
   /** 摘录文本（列表展示用，服务端截断存储） */
   excerpt: string;
+  /** 附加笔记；无笔记为 null（服务端 trim 后空串也存 null） */
+  note: string | null;
   createdAt: number;
+}
+
+/** 笔记汇总页条目：高亮 + 章节标题（chapters 缺失时服务端兜底「第 N 章」） */
+export type HighlightWithChapter = HighlightDto & { chapterTitle: string };
+
+/** 笔记汇总页响应项：按书分组的全部高亮（含纯高亮与带笔记的） */
+export interface NotesBookGroup {
+  bookId: string;
+  bookTitle: string;
+  bookAuthor: string | null;
+  highlights: HighlightWithChapter[];
 }
 
 export interface UserPreferences {

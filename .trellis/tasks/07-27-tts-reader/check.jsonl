@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/web/frontend/index.md", "reason": "前端规范索引"}
+{"file": ".trellis/spec/web/frontend/hook-guidelines.md", "reason": "useTts hook 设计规范"}
+{"file": ".trellis/spec/web/frontend/component-guidelines.md", "reason": "TtsControlBar 组件规范"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "复用 textAnchor 纯文本口径与 CSS Highlight 机制"}

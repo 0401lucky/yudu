@@ -1,0 +1,32 @@
+{
+  "id": "reader-enhancements",
+  "name": "reader-enhancements",
+  "title": "阅读体验增强·第一二梯队",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "0401lucky",
+  "assignee": "0401lucky",
+  "createdAt": "2026-07-27",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "feat/yudu-reader",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "07-27-highlight-notes",
+    "07-27-shelf-management",
+    "07-27-tts-reader",
+    "07-27-annual-report",
+    "07-27-quote-card"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

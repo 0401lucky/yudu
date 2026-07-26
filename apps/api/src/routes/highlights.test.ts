@@ -14,6 +14,7 @@ type HighlightRow = {
   end_offset: number;
   color: string;
   excerpt: string;
+  note: string | null;
   created_at: number;
 };
 
@@ -58,6 +59,7 @@ function createMockDb() {
       end_offset: row.end_offset,
       color: row.color,
       excerpt: row.excerpt,
+      note: row.note,
       created_at: row.created_at,
     };
   }
@@ -77,7 +79,8 @@ function createMockDb() {
                 end_offset: args[5] as number,
                 color: args[6] as string,
                 excerpt: args[7] as string,
-                created_at: args[8] as number,
+                note: args[8] as string | null,
+                created_at: args[9] as number,
               };
               for (const existing of highlights.values()) {
                 if (anchorOf(existing) === anchorOf(row)) {
@@ -90,15 +93,23 @@ function createMockDb() {
               return { success: true, meta: { changes: 1 } };
             }
             if (sql.includes("UPDATE highlights")) {
-              const [color, id, userId, bookId] = args as [
-                string,
+              // 动态 SET：按 sql 中出现的列顺序消费 args，尾部固定 id/userId/bookId
+              const values: Partial<Pick<HighlightRow, "color" | "note">> = {};
+              let cursor = 0;
+              if (sql.includes("color = ?")) {
+                values.color = args[cursor++] as string;
+              }
+              if (sql.includes("note = ?")) {
+                values.note = args[cursor++] as string | null;
+              }
+              const [id, userId, bookId] = args.slice(cursor) as [
                 string,
                 string,
                 string,
               ];
               const row = highlights.get(id);
               if (row && row.user_id === userId && row.book_id === bookId) {
-                row.color = color;
+                Object.assign(row, values);
                 return { success: true, meta: { changes: 1 } };
               }
               return { success: true, meta: { changes: 0 } };
@@ -236,6 +247,7 @@ function seedRow(
   startOffset: number,
   endOffset: number,
   color = "yellow",
+  note: string | null = null,
 ): HighlightRow {
   return {
     id,
@@ -246,6 +258,7 @@ function seedRow(
     end_offset: endOffset,
     color,
     excerpt: `摘录 ${id}`,
+    note,
     created_at: Date.now(),
   };
 }
@@ -593,5 +606,209 @@ describe("highlights routes", () => {
     expect(dto.id).toBe("race-1");
     expect(dto.color).toBe("green");
     expect(db._highlights.size).toBe(1);
+  });
+
+  it("创建带笔记：trim 存储；不带/空白笔记存 null", async () => {
+    const withNote = await app.request(`/api/books/${MY_BOOK}/highlights`, {
+      method: "POST",
+      headers: authedHeaders,
+      body: JSON.stringify({
+        chapterIndex: 0,
+        startOffset: 0,
+        endOffset: 5,
+        color: "yellow",
+        excerpt: "摘录",
+        note: "  这段写得真好  ",
+      }),
+    });
+    expect(withNote.status).toBe(201);
+    const dto = (await withNote.json()) as { id: string; note: string | null };
+    expect(dto.note).toBe("这段写得真好");
+    expect(db._highlights.get(dto.id)?.note).toBe("这段写得真好");
+
+    const noNote = await app.request(`/api/books/${MY_BOOK}/highlights`, {
+      method: "POST",
+      headers: authedHeaders,
+      body: postBody(0, 10, 15),
+    });
+    expect(noNote.status).toBe(201);
+    expect(((await noNote.json()) as { note: string | null }).note).toBeNull();
+
+    const blankNote = await app.request(`/api/books/${MY_BOOK}/highlights`, {
+      method: "POST",
+      headers: authedHeaders,
+      body: JSON.stringify({
+        chapterIndex: 0,
+        startOffset: 20,
+        endOffset: 25,
+        color: "yellow",
+        excerpt: "摘录",
+        note: "   ",
+      }),
+    });
+    expect(blankNote.status).toBe(201);
+    expect(
+      ((await blankNote.json()) as { note: string | null }).note,
+    ).toBeNull();
+  });
+
+  it("创建时笔记超 500 字符或非字符串返回 400；恰 500 合法", async () => {
+    const tooLong = await app.request(`/api/books/${MY_BOOK}/highlights`, {
+      method: "POST",
+      headers: authedHeaders,
+      body: JSON.stringify({
+        chapterIndex: 0,
+        startOffset: 0,
+        endOffset: 5,
+        color: "yellow",
+        excerpt: "摘录",
+        note: "长".repeat(501),
+      }),
+    });
+    expect(tooLong.status).toBe(400);
+    expect(
+      ((await tooLong.json()) as { error: { code: string } }).error.code,
+    ).toBe("INVALID_HIGHLIGHT");
+
+    const badType = await app.request(`/api/books/${MY_BOOK}/highlights`, {
+      method: "POST",
+      headers: authedHeaders,
+      body: JSON.stringify({
+        chapterIndex: 0,
+        startOffset: 0,
+        endOffset: 5,
+        color: "yellow",
+        excerpt: "摘录",
+        note: 42,
+      }),
+    });
+    expect(badType.status).toBe(400);
+    expect(
+      ((await badType.json()) as { error: { code: string } }).error.code,
+    ).toBe("INVALID_HIGHLIGHT");
+    expect(db._highlights.size).toBe(0);
+
+    const exact = await app.request(`/api/books/${MY_BOOK}/highlights`, {
+      method: "POST",
+      headers: authedHeaders,
+      body: JSON.stringify({
+        chapterIndex: 0,
+        startOffset: 0,
+        endOffset: 5,
+        color: "yellow",
+        excerpt: "摘录",
+        note: "长".repeat(500),
+      }),
+    });
+    expect(exact.status).toBe(201);
+    expect(((await exact.json()) as { note: string | null }).note).toBe(
+      "长".repeat(500),
+    );
+  });
+
+  it("PATCH 更新笔记：只带 note 也可；颜色不受影响", async () => {
+    db._highlights.set("h-1", seedRow("h-1", 0, 10, 20, "green"));
+
+    const res = await app.request(`/api/books/${MY_BOOK}/highlights/h-1`, {
+      method: "PATCH",
+      headers: authedHeaders,
+      body: JSON.stringify({ note: " 新想法 " }),
+    });
+    expect(res.status).toBe(200);
+    const dto = (await res.json()) as {
+      id: string;
+      color: string;
+      note: string | null;
+    };
+    expect(dto.note).toBe("新想法");
+    expect(dto.color).toBe("green");
+    expect(db._highlights.get("h-1")?.note).toBe("新想法");
+    expect(db._highlights.get("h-1")?.color).toBe("green");
+  });
+
+  it("PATCH note 为 null 或空串清除笔记（存 null）", async () => {
+    db._highlights.set("h-1", seedRow("h-1", 0, 10, 20, "yellow", "旧想法"));
+
+    const byEmpty = await app.request(`/api/books/${MY_BOOK}/highlights/h-1`, {
+      method: "PATCH",
+      headers: authedHeaders,
+      body: JSON.stringify({ note: "" }),
+    });
+    expect(byEmpty.status).toBe(200);
+    expect(((await byEmpty.json()) as { note: string | null }).note).toBeNull();
+    expect(db._highlights.get("h-1")?.note).toBeNull();
+
+    db._highlights.set("h-2", seedRow("h-2", 1, 10, 20, "yellow", "旧想法"));
+    const byNull = await app.request(`/api/books/${MY_BOOK}/highlights/h-2`, {
+      method: "PATCH",
+      headers: authedHeaders,
+      body: JSON.stringify({ note: null }),
+    });
+    expect(byNull.status).toBe(200);
+    expect(((await byNull.json()) as { note: string | null }).note).toBeNull();
+    expect(db._highlights.get("h-2")?.note).toBeNull();
+  });
+
+  it("PATCH 同时改色与改笔记；笔记超限或两者皆缺返回 400", async () => {
+    db._highlights.set("h-1", seedRow("h-1", 0, 10, 20, "yellow", "旧想法"));
+
+    const both = await app.request(`/api/books/${MY_BOOK}/highlights/h-1`, {
+      method: "PATCH",
+      headers: authedHeaders,
+      body: JSON.stringify({ color: "blue", note: "换个说法" }),
+    });
+    expect(both.status).toBe(200);
+    const dto = (await both.json()) as { color: string; note: string | null };
+    expect(dto.color).toBe("blue");
+    expect(dto.note).toBe("换个说法");
+
+    const tooLong = await app.request(`/api/books/${MY_BOOK}/highlights/h-1`, {
+      method: "PATCH",
+      headers: authedHeaders,
+      body: JSON.stringify({ note: "长".repeat(501) }),
+    });
+    expect(tooLong.status).toBe(400);
+    expect(
+      ((await tooLong.json()) as { error: { code: string } }).error.code,
+    ).toBe("INVALID_HIGHLIGHT");
+    // 校验失败不落库
+    expect(db._highlights.get("h-1")?.note).toBe("换个说法");
+
+    const emptyBody = await app.request(
+      `/api/books/${MY_BOOK}/highlights/h-1`,
+      {
+        method: "PATCH",
+        headers: authedHeaders,
+        body: JSON.stringify({}),
+      },
+    );
+    expect(emptyBody.status).toBe(400);
+    expect(
+      ((await emptyBody.json()) as { error: { code: string } }).error.code,
+    ).toBe("INVALID_HIGHLIGHT");
+  });
+
+  it("列表与幂等返回均带 note 字段", async () => {
+    db._highlights.set("h-1", seedRow("h-1", 0, 10, 20, "yellow", "有想法"));
+    db._highlights.set("h-2", seedRow("h-2", 1, 10, 20, "green"));
+
+    const list = await app.request(`/api/books/${MY_BOOK}/highlights`, {
+      headers: authedHeaders,
+    });
+    expect(list.status).toBe(200);
+    const items = (await list.json()) as { id: string; note: string | null }[];
+    expect(items.find((h) => h.id === "h-1")?.note).toBe("有想法");
+    expect(items.find((h) => h.id === "h-2")?.note).toBeNull();
+
+    // 同锚点幂等返回已有记录的 note
+    const dup = await app.request(`/api/books/${MY_BOOK}/highlights`, {
+      method: "POST",
+      headers: authedHeaders,
+      body: postBody(0, 10, 20),
+    });
+    expect(dup.status).toBe(200);
+    expect(((await dup.json()) as { note: string | null }).note).toBe(
+      "有想法",
+    );
   });
 });

@@ -3,6 +3,7 @@ import {
   HIGHLIGHT_COLORS,
   MAX_HIGHLIGHT_CHARS,
   MAX_HIGHLIGHT_EXCERPT_CHARS,
+  MAX_HIGHLIGHT_NOTE_CHARS,
   MAX_HIGHLIGHTS_PER_BOOK,
   type HighlightColor,
   type HighlightDto,
@@ -17,6 +18,7 @@ type HighlightRow = {
   end_offset: number;
   color: string;
   excerpt: string;
+  note: string | null;
   created_at: number;
 };
 
@@ -35,6 +37,7 @@ function rowToDto(row: HighlightRow): HighlightDto {
     endOffset: row.end_offset,
     color: row.color as HighlightColor,
     excerpt: row.excerpt,
+    note: row.note,
     createdAt: row.created_at,
   };
 }
@@ -67,6 +70,24 @@ function isColor(value: unknown): value is HighlightColor {
   );
 }
 
+/** 笔记校验：null/空串视为清除（存 NULL），trim 后超长拒绝 */
+function parseNote(
+  value: unknown,
+): { ok: true; note: string | null } | { ok: false; message: string } {
+  if (value == null) return { ok: true, note: null };
+  if (typeof value !== "string") {
+    return { ok: false, message: "note 须为字符串" };
+  }
+  const trimmed = value.trim();
+  if (trimmed.length > MAX_HIGHLIGHT_NOTE_CHARS) {
+    return {
+      ok: false,
+      message: `单条笔记最长 ${MAX_HIGHLIGHT_NOTE_CHARS} 个字符`,
+    };
+  }
+  return { ok: true, note: trimmed || null };
+}
+
 /** 按锚点查已有高亮（UNIQUE 幂等用） */
 async function findByAnchor(
   db: D1Database,
@@ -78,7 +99,7 @@ async function findByAnchor(
 ): Promise<HighlightRow | null> {
   return db
     .prepare(
-      `SELECT id, chapter_index, start_offset, end_offset, color, excerpt, created_at
+      `SELECT id, chapter_index, start_offset, end_offset, color, excerpt, note, created_at
        FROM highlights
        WHERE user_id = ? AND book_id = ? AND chapter_index = ?
          AND start_offset = ? AND end_offset = ?`,
@@ -97,7 +118,7 @@ highlightsRoutes.get("/:id/highlights", async (c) => {
   }
 
   const { results } = await c.env.DB.prepare(
-    `SELECT id, chapter_index, start_offset, end_offset, color, excerpt, created_at
+    `SELECT id, chapter_index, start_offset, end_offset, color, excerpt, note, created_at
      FROM highlights
      WHERE user_id = ? AND book_id = ?
      ORDER BY chapter_index ASC, start_offset ASC`,
@@ -119,6 +140,7 @@ highlightsRoutes.post("/:id/highlights", async (c) => {
     endOffset?: unknown;
     color?: unknown;
     excerpt?: unknown;
+    note?: unknown;
   };
   try {
     body = await c.req.json();
@@ -163,6 +185,12 @@ highlightsRoutes.post("/:id/highlights", async (c) => {
   }
   // 摘录仅列表展示用：超长截断存储，不作为拒绝理由
   const excerpt = body.excerpt.trim().slice(0, MAX_HIGHLIGHT_EXCERPT_CHARS);
+  // 可选笔记：未提供/空串视为无笔记
+  const parsedNote = parseNote(body.note);
+  if (!parsedNote.ok) {
+    return c.json(invalidHighlight(parsedNote.message), 400);
+  }
+  const note = parsedNote.note;
 
   if (!(await findOwnedBook(c.env.DB, bookId, userId))) {
     return c.json(bookNotFoundBody, 404);
@@ -203,8 +231,8 @@ highlightsRoutes.post("/:id/highlights", async (c) => {
   try {
     await c.env.DB.prepare(
       `INSERT INTO highlights
-         (id, user_id, book_id, chapter_index, start_offset, end_offset, color, excerpt, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, user_id, book_id, chapter_index, start_offset, end_offset, color, excerpt, note, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
       .bind(
         id,
@@ -215,6 +243,7 @@ highlightsRoutes.post("/:id/highlights", async (c) => {
         endOffset,
         body.color,
         excerpt,
+        note,
         now,
       )
       .run();
@@ -243,18 +272,19 @@ highlightsRoutes.post("/:id/highlights", async (c) => {
     endOffset,
     color: body.color,
     excerpt,
+    note,
     createdAt: now,
   };
   return c.json(dto, 201);
 });
 
-/** PATCH /api/books/:id/highlights/:highlightId — 改色 */
+/** PATCH /api/books/:id/highlights/:highlightId — 改色 / 改笔记（至少给一个；note null/空串 = 清除） */
 highlightsRoutes.patch("/:id/highlights/:highlightId", async (c) => {
   const userId = c.get("userId");
   const bookId = c.req.param("id");
   const highlightId = c.req.param("highlightId");
 
-  let body: { color?: unknown };
+  let body: { color?: unknown; note?: unknown };
   try {
     body = await c.req.json();
   } catch {
@@ -263,8 +293,21 @@ highlightsRoutes.patch("/:id/highlights/:highlightId", async (c) => {
       400,
     );
   }
-  if (!isColor(body.color)) {
+  const hasColor = body.color !== undefined;
+  const hasNote = "note" in body;
+  if (!hasColor && !hasNote) {
+    return c.json(invalidHighlight("color 与 note 至少提供一个"), 400);
+  }
+  if (hasColor && !isColor(body.color)) {
     return c.json(invalidHighlight("color 不在支持范围内"), 400);
+  }
+  let note: string | null = null;
+  if (hasNote) {
+    const parsed = parseNote(body.note);
+    if (!parsed.ok) {
+      return c.json(invalidHighlight(parsed.message), 400);
+    }
+    note = parsed.note;
   }
 
   if (!(await findOwnedBook(c.env.DB, bookId, userId))) {
@@ -272,7 +315,7 @@ highlightsRoutes.patch("/:id/highlights/:highlightId", async (c) => {
   }
 
   const row = await c.env.DB.prepare(
-    `SELECT id, chapter_index, start_offset, end_offset, color, excerpt, created_at
+    `SELECT id, chapter_index, start_offset, end_offset, color, excerpt, note, created_at
      FROM highlights
      WHERE id = ? AND user_id = ? AND book_id = ?`,
   )
@@ -285,13 +328,29 @@ highlightsRoutes.patch("/:id/highlights/:highlightId", async (c) => {
     );
   }
 
+  const sets: string[] = [];
+  const binds: unknown[] = [];
+  if (hasColor) {
+    sets.push("color = ?");
+    binds.push(body.color);
+  }
+  if (hasNote) {
+    sets.push("note = ?");
+    binds.push(note);
+  }
   await c.env.DB.prepare(
-    `UPDATE highlights SET color = ? WHERE id = ? AND user_id = ? AND book_id = ?`,
+    `UPDATE highlights SET ${sets.join(", ")} WHERE id = ? AND user_id = ? AND book_id = ?`,
   )
-    .bind(body.color, highlightId, userId, bookId)
+    .bind(...binds, highlightId, userId, bookId)
     .run();
 
-  return c.json(rowToDto({ ...row, color: body.color }));
+  return c.json(
+    rowToDto({
+      ...row,
+      color: hasColor && isColor(body.color) ? body.color : row.color,
+      note: hasNote ? note : row.note,
+    }),
+  );
 });
 
 /** DELETE /api/books/:id/highlights/:highlightId */
