@@ -2,6 +2,7 @@ import type { UserPreferences } from "@yudu/shared";
 import type {
   FontFamilyId,
   LocalReaderPrefs,
+  ReadingModeId,
 } from "../hooks/useLocalReaderPrefs";
 
 interface ReaderSettingsSheetProps {
@@ -22,6 +23,11 @@ const MARGINS: { id: UserPreferences["pageMargin"]; label: string }[] = [
 const FONTS: { id: FontFamilyId; label: string }[] = [
   { id: "serif", label: "宋体" },
   { id: "sans", label: "黑体" },
+];
+
+const READING_MODES: { id: ReadingModeId; label: string }[] = [
+  { id: "page", label: "翻页" },
+  { id: "scroll", label: "连续滚动" },
 ];
 
 /** 从底部滑入的阅读设置面板——阅读页内一站式调节，无需进设置页 */
@@ -67,6 +73,15 @@ export default function ReaderSettingsSheet({
               onChange={(v) =>
                 onPrefs({ theme: v as UserPreferences["theme"] })
               }
+            />
+          </Row>
+
+          {/* 阅读模式 */}
+          <Row label="阅读模式">
+            <Segmented
+              options={READING_MODES}
+              value={localPrefs.readingMode}
+              onChange={(v) => onLocalPrefs({ readingMode: v as ReadingModeId })}
             />
           </Row>
 

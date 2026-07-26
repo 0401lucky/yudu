@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/web/frontend/index.md", "reason": "前端规范索引:纯前端任务的总入口"}
+{"file": ".trellis/spec/web/frontend/component-guidelines.md", "reason": "新增 ScrollReaderViewport 组件需遵循组件规范"}
+{"file": ".trellis/spec/web/frontend/hook-guidelines.md", "reason": "新增 useChapterWindow、扩展 useLocalReaderPrefs 需遵循 hook 规范"}
+{"file": ".trellis/spec/web/frontend/state-management.md", "reason": "ReaderPage 模式分支状态归属需符合状态管理约定"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "进度同步(charOffset 口径)涉及前后端数据流一致性"}

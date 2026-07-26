@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/web/frontend/index.md", "reason": "前端规范索引"}
+{"file": ".trellis/spec/web/frontend/component-guidelines.md", "reason": "HighlightPopover 组件、视口接入需遵循组件规范"}
+{"file": ".trellis/spec/web/frontend/hook-guidelines.md", "reason": "useHighlights hook 需遵循 hook 规范"}
+{"file": ".trellis/spec/api/backend/index.md", "reason": "后端规范索引:新增 highlights 路由"}
+{"file": ".trellis/spec/api/backend/database-guidelines.md", "reason": "新增 0004_highlights.sql 迁移需遵循数据库规范"}
+{"file": ".trellis/spec/api/backend/error-handling.md", "reason": "highlights 路由错误体格式需与既有接口一致"}
+{"file": ".trellis/spec/shared/library/type-contracts.md", "reason": "HighlightDto 等共享类型契约规范"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "高亮锚点口径贯穿 shared/api/web 三层"}

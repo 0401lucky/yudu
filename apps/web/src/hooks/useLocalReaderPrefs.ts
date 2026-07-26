@@ -4,16 +4,22 @@ import { useCallback, useEffect, useState } from "react";
 
 export type FontFamilyId = "serif" | "sans";
 
+/** 阅读模式：page=横向翻页；scroll=连续上下滚动 */
+export type ReadingModeId = "page" | "scroll";
+
 export interface LocalReaderPrefs {
   /** 字体族 */
   fontFamily: FontFamilyId;
   /** 屏幕亮度蒙层强度，0.4–1；1 = 不压暗 */
   brightness: number;
+  /** 阅读模式，默认翻页（老用户体验不变） */
+  readingMode: ReadingModeId;
 }
 
 const DEFAULTS: LocalReaderPrefs = {
   fontFamily: "serif",
   brightness: 1,
+  readingMode: "page",
 };
 
 const KEY = "yudu.reader.local";
@@ -35,6 +41,10 @@ function read(): LocalReaderPrefs {
         parsed.brightness <= 1
           ? parsed.brightness
           : DEFAULTS.brightness,
+      readingMode:
+        parsed.readingMode === "scroll" || parsed.readingMode === "page"
+          ? parsed.readingMode
+          : DEFAULTS.readingMode,
     };
   } catch {
     return DEFAULTS;

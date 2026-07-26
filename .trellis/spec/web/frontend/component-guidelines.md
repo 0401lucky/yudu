@@ -32,7 +32,8 @@
 |------|------|
 | `BookCard` | 展示 `BookSummary`；点击进阅读；删除需 confirm |
 | `ImportDropzone` | 拖拽/选择文件，回调 `File[]`，不直接调 API |
-| `ReaderViewport` | 版心测量与左右分页展示章节文本 |
+| `ReaderViewport` | 版心测量与左右分页展示章节文本（翻页模式） |
+| `ScrollReaderViewport` | 垂直滚动 + 三章无缝拼接（连续阅读模式） |
 | `ReaderChrome` | 顶栏/底栏显示与隐藏 |
 | `TocDrawer` | 目录 + 书签列表 |
 | `ReaderSettingsSheet` | 字号/行距/边距/主题等设置 UI |
@@ -50,6 +51,9 @@
 ## 阅读器相关
 
 - 分页在客户端：`ReaderViewport` 测量 + `ReaderPage` 的 `pendingPageRef` 处理跨章落页
+- 两种阅读模式并存：`ReaderPage` 按 `localPrefs.readingMode` 分支渲染 `ReaderViewport`（翻页）/ `ScrollReaderViewport`（滚动），位置互通走 charOffset 锚点（见状态管理指南）
+- **排版常量共享**：字距/版心/字体栈常量在 `components/readerTypography.ts`（`VERTICAL_PAD`/`HORIZONTAL_PAD`/`MEASURE_EM`/`FONT_STACK`），新视口必须从这里导入，禁止各自内联一份导致两模式观感漂移
+- 滚动容器需设 `overflow-anchor: none`，滚动补偿由组件自研锚点逻辑掌控（iOS 不支持该属性,靠补偿兜底）
 - 安全区：`.safe-top` / `.safe-bottom` + `env(safe-area-inset-*)`
 - 阅读页避免横向溢出：`.reader-chrome { max-width: 100vw }`
 

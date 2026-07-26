@@ -22,8 +22,11 @@ interface LegacyBookmark {
   label: string;
 }
 
-/** 迁移换算用的单页典型字符容量（中文一页约 600 字） */
-const ASSUMED_PAGE_CHARS = 600;
+/**
+ * 单页典型字符容量（中文一页约 600 字）：
+ * 旧书签迁移换算、ReaderPage 滚动模式的近似页/书签点亮区间共用同一口径
+ */
+export const ASSUMED_PAGE_CHARS = 600;
 
 function legacyKey(bookId: string): string {
   return `yudu.reader.bookmarks.${bookId}`;

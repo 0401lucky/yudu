@@ -8,7 +8,8 @@
 | `useThemePrefs` | `components/ThemeProvider.tsx` | 云端 `UserPreferences` + DOM 主题 |
 | `useProgressSync` | `hooks/useProgressSync.ts` | 阅读进度防抖写入 + 离开页 flush |
 | `useBookmarks` | `hooks/useBookmarks.ts` | 云端书签（乐观增删 + 旧 localStorage 数据一次性迁移） |
-| `useLocalReaderPrefs` | `hooks/useLocalReaderPrefs.ts` | 字体族/亮度，**仅本地**，不改 D1 |
+| `useLocalReaderPrefs` | `hooks/useLocalReaderPrefs.ts` | 字体族/亮度/阅读模式（page\|scroll），**仅本地**，不改 D1 |
+| `useChapterWindow` | `hooks/useChapterWindow.ts` | 章节唯一数据源：[prev, current, next] 三章窗口 + LRU 缓存（10 章）+ 并发去重；两种阅读模式共用 |
 
 ## 编写规则
 
@@ -31,7 +32,8 @@ export function useAuth(): AuthContextValue {
 
 - 防抖 1s（`DEBOUNCE_MS`）
 - `visibilitychange` hidden / `pagehide` / unmount 时 `flush`
-- `charOffset` 由页比例近似（书架百分比用）；`pageInChapter` 用于恢复页码
+- **`charOffset` 是恢复位置的主锚点**（两种阅读模式的公共坐标）；`pageInChapter` 仅作回退（旧记录 `charOffset=0 且 pageInChapter>0` 时按 `pageInChapter × ASSUMED_PAGE_CHARS(600)` 换算，常量从 `useBookmarks` 导出，勿重复定义）
+- 翻页模式 `charOffset` 由页比例近似；滚动模式由滚动高度比例近似；md 内容长度统一用 `mdPlainLengthApprox` 口径
 
 ## 数据请求习惯
 

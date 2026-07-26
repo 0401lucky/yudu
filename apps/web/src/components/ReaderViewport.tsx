@@ -7,6 +7,12 @@ import {
 } from "react";
 import type { FontFamilyId } from "../hooks/useLocalReaderPrefs";
 import { renderMarkdown } from "../lib/mdRender";
+import {
+  FONT_STACK,
+  HORIZONTAL_PAD,
+  MEASURE_EM,
+  VERTICAL_PAD,
+} from "./readerTypography";
 
 interface ReaderViewportProps {
   /** 整章文本，由浏览器多栏排版自动分页，永不裁字 */
@@ -25,34 +31,6 @@ interface ReaderViewportProps {
   onNext: () => void;
   onToggleChrome: () => void;
 }
-
-const VERTICAL_PAD: Record<string, string> = {
-  compact: "0.75rem",
-  normal: "1rem",
-  relaxed: "1.25rem",
-};
-/** 栏内左右内边距（版心已限宽，大屏不再用巨大 padding「硬挤」） */
-const HORIZONTAL_PAD: Record<string, string> = {
-  compact: "0.85rem",
-  normal: "1.15rem",
-  relaxed: "1.5rem",
-};
-
-/**
- * 桌面端版心最大宽度（相对字号的 em），避免整屏拉行导致难读。
- * 中文约 32～40 字/行更舒适；边距档位略调宽窄。
- */
-const MEASURE_EM: Record<"compact" | "normal" | "relaxed", number> = {
-  compact: 34,
-  normal: 38,
-  relaxed: 42,
-};
-
-const FONT_STACK: Record<FontFamilyId, string> = {
-  serif:
-    '"Noto Serif SC", "Source Han Serif SC", "Songti SC", "SimSun", serif',
-  sans: '"Noto Sans SC", "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif',
-};
 
 const SWIPE_THRESHOLD = 48;
 
