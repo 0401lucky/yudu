@@ -36,18 +36,38 @@ function cellTitle(date: string, seconds: number): string {
 
 interface ReadingHeatmapProps {
   days: DailyReadingStat[];
+  /** 网格终点日期，默认今天；年度报告传该年末（或今天，取较早者） */
+  endDate?: Date;
+  /** 周列数，默认 HEATMAP_WEEKS（52） */
+  weekCount?: number;
+  /** 起始下界 YYYY-MM-DD，早于它的格子渲染为空白占位（裁掉上一年尾巴） */
+  rangeStart?: string;
+  /** 无障碍描述，默认「过去 N 周…」 */
+  ariaLabel?: string;
 }
 
 /**
  * GitHub 风格阅读热力图：列 = 周（左往右时间递增），行 = 周一…周日。
  * 窄屏横向滚动，默认停在最近一周；悬停格子显示日期与时长。
  */
-export default function ReadingHeatmap({ days }: ReadingHeatmapProps) {
+export default function ReadingHeatmap({
+  days,
+  endDate,
+  weekCount = HEATMAP_WEEKS,
+  rangeStart,
+  ariaLabel,
+}: ReadingHeatmapProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const { weeks, monthLabels } = useMemo(
-    () => buildHeatmapGrid(toSecondsMap(days), new Date(), HEATMAP_WEEKS),
-    [days],
+    () =>
+      buildHeatmapGrid(
+        toSecondsMap(days),
+        endDate ?? new Date(),
+        weekCount,
+        rangeStart,
+      ),
+    [days, endDate, weekCount, rangeStart],
   );
   const empty = !days.some((d) => d.seconds > 0);
 
@@ -64,7 +84,7 @@ export default function ReadingHeatmap({ days }: ReadingHeatmapProps) {
           // pr 给最后一列的月份标签留溢出余量（absolute 定位不计入 w-max 宽度）
           className="w-max pr-4"
           role="img"
-          aria-label={`过去 ${HEATMAP_WEEKS} 周的每日阅读时长热力图`}
+          aria-label={ariaLabel ?? `过去 ${weekCount} 周的每日阅读时长热力图`}
         >
           {/* 月份参考轴 */}
           <div
@@ -108,7 +128,7 @@ export default function ReadingHeatmap({ days }: ReadingHeatmapProps) {
               }}
             >
               {weeks.flat().map((cell) =>
-                cell.inFuture ? (
+                cell.inFuture || cell.outOfRange ? (
                   <div key={cell.date} style={{ width: CELL, height: CELL }} />
                 ) : (
                   <div

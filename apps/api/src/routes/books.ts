@@ -495,8 +495,9 @@ function rowToSummary(row: BookRow): BookSummary {
 
 /**
  * ((chapterIndex + charOffset / max(charCount,1)) / chapterCount) * 100
+ * 导出供年度报告复用同一口径判定「读完」（≥98%）。
  */
-function calcProgressPercent(
+export function calcProgressPercent(
   chapterCount: number,
   chapterIndex: number | null,
   charOffset: number | null,

@@ -21,3 +21,5 @@ export const MAX_HIGHLIGHT_EXCERPT_CHARS = 120;
 export const MAX_HIGHLIGHT_NOTE_CHARS = 500;
 /** 书架分组名最大长度（trim 后 1–30，前后端共用校验口径） */
 export const MAX_BOOK_GROUP_CHARS = 30;
+/** 年度阅读报告可查询的最早年份（前后端共用校验口径） */
+export const MIN_REPORT_YEAR = 2020;

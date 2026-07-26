@@ -129,6 +129,17 @@ describe("buildHeatmapGrid", () => {
       weeks.flat().every((c) => c.level === 0 && c.seconds === 0),
     ).toBe(true);
   });
+
+  it("rangeStart 之前的格子标记 outOfRange，缺省时恒为 false", () => {
+    const cells = buildHeatmapGrid(map, today, 4, "2026-07-01").weeks.flat();
+    expect(cells.some((c) => c.outOfRange)).toBe(true);
+    for (const c of cells) {
+      expect(c.outOfRange).toBe(c.date < "2026-07-01");
+    }
+    // 不传 rangeStart 时行为与原版一致
+    const defaults = buildHeatmapGrid(map, today, 4).weeks.flat();
+    expect(defaults.every((c) => !c.outOfRange)).toBe(true);
+  });
 });
 
 describe("toSecondsMap", () => {

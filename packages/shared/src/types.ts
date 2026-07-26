@@ -141,6 +141,32 @@ export interface ReadingStatsResponse {
   days: DailyReadingStat[];
 }
 
+/** 年度阅读报告（GET /api/stats/annual?year=YYYY） */
+export interface AnnualReportResponse {
+  /** 年内阅读总时长（秒） */
+  totalSeconds: number;
+  /** 有阅读记录的天数 */
+  activeDays: number;
+  /** 年内最长连续阅读天数 */
+  maxStreakDays: number;
+  /** 年内有阅读进度更新的书数 */
+  booksRead: number;
+  /** 进度 ≥98% 的书数（全量口径，不按年过滤） */
+  booksFinished: number;
+  /** 年内创建的高亮数 */
+  highlightCount: number;
+  /** 年内创建且带笔记的高亮数 */
+  noteCount: number;
+  /** 年内创建的书签数 */
+  bookmarkCount: number;
+  /** 时长最高的一天；全年无阅读为 null */
+  busiestDay: DailyReadingStat | null;
+  /** 按月聚合的阅读秒数，长度固定 12（下标 0 = 1 月） */
+  monthlySeconds: number[];
+  /** 该年稀疏日数据（仅非零，升序），热力图用 */
+  days: DailyReadingStat[];
+}
+
 export interface ApiErrorBody {
   error: { code: string; message: string };
 }

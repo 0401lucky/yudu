@@ -1,4 +1,5 @@
 import type {
+  AnnualReportResponse,
   ApiErrorBody,
   BookDetail,
   BookmarkDto,
@@ -353,4 +354,10 @@ export function postReadingTime(body: {
 export function getReadingStats(days?: number): Promise<ReadingStatsResponse> {
   const query = days != null ? `?days=${days}` : "";
   return api<ReadingStatsResponse>(`/api/stats/reading${query}`);
+}
+
+/** 年度阅读报告；year 缺省为当前年（服务端限 2020–当前年） */
+export function getAnnualReport(year?: number): Promise<AnnualReportResponse> {
+  const query = year != null ? `?year=${year}` : "";
+  return api<AnnualReportResponse>(`/api/stats/annual${query}`);
 }

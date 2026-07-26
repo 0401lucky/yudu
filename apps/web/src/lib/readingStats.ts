@@ -13,6 +13,8 @@ export interface HeatmapCell {
   level: HeatLevel;
   /** 晚于今天的占位格（不渲染颜色与提示） */
   inFuture: boolean;
+  /** 早于 rangeStart 的占位格（年度视图裁掉上一年尾巴），渲染同 inFuture */
+  outOfRange: boolean;
 }
 
 export interface HeatmapMonthLabel {
@@ -93,11 +95,13 @@ export function levelOf(
 /**
  * 构建周列网格：列 = 周（时间从左往右递增），行 = 周一…周日。
  * 最后一列为今天所在周；晚于今天的格子标记 inFuture。
+ * rangeStart（YYYY-MM-DD，可选）：早于它的格子标记 outOfRange（年度视图用）。
  */
 export function buildHeatmapGrid(
   map: Map<string, number>,
   today: Date,
   weekCount: number = HEATMAP_WEEKS,
+  rangeStart?: string,
 ): { weeks: HeatmapCell[][]; monthLabels: HeatmapMonthLabel[] } {
   const todayStr = localDateStr(today);
   // 正午基准，规避夏令时下 setDate 的跨日误差
@@ -132,6 +136,7 @@ export function buildHeatmapGrid(
         seconds,
         level: levelOf(seconds, thresholds),
         inFuture: date > todayStr,
+        outOfRange: rangeStart != null && date < rangeStart,
       });
     }
     weeks.push(cells);

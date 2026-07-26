@@ -6,6 +6,7 @@ import LoginPage from "./pages/LoginPage";
 import NotesPage from "./pages/NotesPage";
 import ReaderPage from "./pages/ReaderPage";
 import RegisterPage from "./pages/RegisterPage";
+import ReportPage from "./pages/ReportPage";
 import SettingsPage from "./pages/SettingsPage";
 
 function RequireAuth() {
@@ -35,6 +36,7 @@ export default function App() {
       <Route element={<RequireAuth />}>
         <Route path="/library" element={<LibraryPage />} />
         <Route path="/notes" element={<NotesPage />} />
+        <Route path="/report" element={<ReportPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/read/:bookId" element={<ReaderPage />} />
       </Route>

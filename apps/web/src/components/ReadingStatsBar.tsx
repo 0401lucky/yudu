@@ -1,5 +1,6 @@
 import type { DailyReadingStat } from "@yudu/shared";
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   calcStreak,
   formatDuration,
@@ -78,6 +79,14 @@ export default function ReadingStatsBar({ days }: ReadingStatsBarProps) {
         <div className="overflow-hidden">
           <div className="border-t border-[var(--border)] px-4 pb-3 pt-3">
             <ReadingHeatmap days={days} />
+            <div className="mt-2 text-right">
+              <Link
+                to="/report"
+                className="rounded text-xs text-[var(--text-muted)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              >
+                查看年度报告 →
+              </Link>
+            </div>
           </div>
         </div>
       </div>
