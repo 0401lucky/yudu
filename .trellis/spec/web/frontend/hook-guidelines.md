@@ -10,6 +10,8 @@
 | `useBookmarks` | `hooks/useBookmarks.ts` | 云端书签（乐观增删 + 旧 localStorage 数据一次性迁移） |
 | `useLocalReaderPrefs` | `hooks/useLocalReaderPrefs.ts` | 字体族/亮度/阅读模式（page\|scroll），**仅本地**，不改 D1 |
 | `useChapterWindow` | `hooks/useChapterWindow.ts` | 章节唯一数据源：[prev, current, next] 三章窗口 + LRU 缓存（10 章）+ 并发去重；两种阅读模式共用 |
+| `useHighlights` | `hooks/useHighlights.ts` | 云端高亮（乐观增/删/改色，temp-id 竞态处理同 useBookmarks） |
+| `useReaderHighlights` | `hooks/useReaderHighlights.ts` | 高亮交互层：选区→气泡→创建、点击命中→编辑、CSS Custom Highlight API 渲染（特性检测降级）；视口经 bridge 接入 |
 
 ## 编写规则
 

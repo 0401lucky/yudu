@@ -1,4 +1,4 @@
-import type { BookFormat } from "./constants";
+import type { BookFormat, HighlightColor } from "./constants";
 
 export type BookStatus = "processing" | "ready" | "failed";
 export type ThemeId = "night" | "paper";
@@ -62,6 +62,22 @@ export interface BookmarkDto {
   chapterIndex: number;
   charOffset: number;
   label: string;
+  createdAt: number;
+}
+
+/**
+ * 云端文本高亮；锚点为章内「渲染后纯文本」字符偏移区间 [startOffset, endOffset)
+ * （md 书以渲染 DOM 文本为准，与书签/进度同一近似家族）
+ */
+export interface HighlightDto {
+  id: string;
+  chapterIndex: number;
+  startOffset: number;
+  /** 开区间终点，恒大于 startOffset */
+  endOffset: number;
+  color: HighlightColor;
+  /** 摘录文本（列表展示用，服务端截断存储） */
+  excerpt: string;
   createdAt: number;
 }
 

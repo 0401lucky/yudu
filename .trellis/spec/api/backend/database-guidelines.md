@@ -4,9 +4,9 @@
 
 ### Schema 来源
 
-唯一迁移：`apps/api/migrations/0001_init.sql`。
+迁移目录：`apps/api/migrations/`（`0001_init` → `0002_bookmarks` → `0003_reading_stats` → `0004_highlights`,按序追加）。
 
-表：`users`、`sessions`、`books`、`chapters`、`reading_progress`、`user_preferences`。
+表：`users`、`sessions`、`books`、`chapters`、`reading_progress`、`user_preferences`、`bookmarks`、`reading_stats_daily`、`highlights`。
 
 ### 约定
 
@@ -55,7 +55,16 @@ pnpm exec wrangler d1 migrations apply yudu --local
 pnpm exec wrangler d1 migrations apply novel-reading-platform-db --remote
 ```
 
-新增列/表：新增 `migrations/0002_*.sql`，不要改写已应用的 `0001_init.sql`。
+新增列/表：追加新序号迁移文件（如 `migrations/0005_*.sql`），不要改写已应用的迁移。
+
+### 用户标注类表的既定模式（bookmarks / highlights）
+
+按用户 + 书隔离的标注数据(书签、高亮)遵循同一套契约,新增同类表照抄:
+
+- 锚点列 + `UNIQUE(user_id, book_id, <锚点列...>)`,配 `idx_<表>_user_book` 索引
+- 路由:归属校验(越权视同 404)→ 参数校验(非负整数、白名单、长度截断)→ 同锚点幂等预查 → 单书上限 → INSERT,catch UNIQUE 冲突后二次查询兜底并发
+- 上限检查放在幂等之后:同锚点重复添加不应被上限拒绝
+- 常量(上限、长度)与 DTO 定义在 `@yudu/shared`,前后端共用
 
 ---
 

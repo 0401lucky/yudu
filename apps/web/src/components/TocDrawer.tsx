@@ -1,4 +1,4 @@
-import type { BookmarkDto, ChapterMeta } from "@yudu/shared";
+import type { BookmarkDto, ChapterMeta, HighlightDto } from "@yudu/shared";
 import { useState } from "react";
 
 interface TocDrawerProps {
@@ -6,23 +6,36 @@ interface TocDrawerProps {
   chapters: ChapterMeta[];
   currentIndex: number;
   bookmarks: BookmarkDto[];
+  highlights: HighlightDto[];
   onClose: () => void;
   onSelect: (index: number) => void;
   onSelectBookmark: (mark: BookmarkDto) => void;
   onRemoveBookmark: (mark: BookmarkDto) => void;
+  onSelectHighlight: (hl: HighlightDto) => void;
+  onRemoveHighlight: (hl: HighlightDto) => void;
 }
+
+/** 列表小圆点颜色（与 HighlightPopover 取色一致） */
+const HL_DOT_COLOR: Record<HighlightDto["color"], string> = {
+  yellow: "#eab308",
+  green: "#22c55e",
+  blue: "#3b82f6",
+};
 
 export default function TocDrawer({
   open,
   chapters,
   currentIndex,
   bookmarks,
+  highlights,
   onClose,
   onSelect,
   onSelectBookmark,
   onRemoveBookmark,
+  onSelectHighlight,
+  onRemoveHighlight,
 }: TocDrawerProps) {
-  const [tab, setTab] = useState<"toc" | "marks">("toc");
+  const [tab, setTab] = useState<"toc" | "marks" | "hls">("toc");
   if (!open) return null;
 
   return (
@@ -40,6 +53,9 @@ export default function TocDrawer({
           </TabButton>
           <TabButton active={tab === "marks"} onClick={() => setTab("marks")}>
             书签{bookmarks.length ? ` (${bookmarks.length})` : ""}
+          </TabButton>
+          <TabButton active={tab === "hls"} onClick={() => setTab("hls")}>
+            标注{highlights.length ? ` (${highlights.length})` : ""}
           </TabButton>
           <div className="flex-1" />
           <button
@@ -75,7 +91,7 @@ export default function TocDrawer({
               );
             })}
           </ul>
-        ) : (
+        ) : tab === "marks" ? (
           <ul className="flex-1 overflow-y-auto overscroll-contain py-1 pb-[env(safe-area-inset-bottom)]">
             {bookmarks.length === 0 ? (
               <li className="px-4 py-8 text-center text-sm text-[var(--text-muted)]">
@@ -110,6 +126,49 @@ export default function TocDrawer({
               ))
             )}
           </ul>
+        ) : (
+          <ul className="flex-1 overflow-y-auto overscroll-contain py-1 pb-[env(safe-area-inset-bottom)]">
+            {highlights.length === 0 ? (
+              <li className="px-4 py-8 text-center text-sm text-[var(--text-muted)]">
+                还没有标注。选中正文文字即可添加高亮。
+              </li>
+            ) : (
+              highlights.map((hl) => (
+                <li key={hl.id} className="flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSelectHighlight(hl);
+                      onClose();
+                    }}
+                    className="min-w-0 flex-1 px-3 py-3 text-left text-sm leading-snug text-[var(--text)] hover:bg-[var(--bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)] sm:px-4"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <span
+                        aria-hidden
+                        className="h-2 w-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: HL_DOT_COLOR[hl.color] }}
+                      />
+                      <span className="min-w-0 flex-1 truncate">
+                        {hl.excerpt || "（无摘录）"}
+                      </span>
+                    </span>
+                    <span className="mt-0.5 block truncate text-[11px] text-[var(--text-muted)]">
+                      {chapterTitle(chapters, hl.chapterIndex)}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onRemoveHighlight(hl)}
+                    aria-label="删除标注"
+                    className="mr-1 flex h-10 w-10 shrink-0 items-center justify-center rounded text-[var(--text-muted)] hover:text-red-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))
+            )}
+          </ul>
         )}
       </aside>
     </div>
@@ -122,6 +181,13 @@ function chapterPercent(chapters: ChapterMeta[], mark: BookmarkDto): number {
     chapters.find((ch) => ch.index === mark.chapterIndex)?.charCount ?? 0;
   if (charCount <= 0) return 0;
   return Math.min(100, Math.round((mark.charOffset / charCount) * 100));
+}
+
+function chapterTitle(chapters: ChapterMeta[], index: number): string {
+  return (
+    chapters.find((ch) => ch.index === index)?.title.trim() ||
+    `第 ${index + 1} 章`
+  );
 }
 
 function TabButton({

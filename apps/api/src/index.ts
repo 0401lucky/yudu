@@ -3,6 +3,7 @@ import type { Env } from "./env";
 import { authRoutes, meRoutes } from "./routes/auth";
 import { bookmarksRoutes } from "./routes/bookmarks";
 import { booksRoutes } from "./routes/books";
+import { highlightsRoutes } from "./routes/highlights";
 import { preferencesRoutes } from "./routes/preferences";
 import { progressRoutes } from "./routes/progress";
 import { searchRoutes } from "./routes/search";
@@ -17,7 +18,10 @@ app.use("*", async (c, next) => {
     c.header("Access-Control-Allow-Origin", origin);
     c.header("Access-Control-Allow-Credentials", "true");
     c.header("Access-Control-Allow-Headers", "Content-Type");
-    c.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+    c.header(
+      "Access-Control-Allow-Methods",
+      "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+    );
     c.header("Vary", "Origin");
   }
   if (c.req.method === "OPTIONS") {
@@ -33,6 +37,8 @@ app.route("/api", meRoutes);
 app.route("/api/books", booksRoutes);
 // 书签挂在 /api/books/:id/bookmarks；booksRoutes 未匹配的子路径落到这里
 app.route("/api/books", bookmarksRoutes);
+// 文本高亮挂在 /api/books/:id/highlights，同前缀挂载
+app.route("/api/books", highlightsRoutes);
 // 书内搜索挂在 /api/books/:id/search，同前缀挂载
 app.route("/api/books", searchRoutes);
 app.route("/api/progress", progressRoutes);

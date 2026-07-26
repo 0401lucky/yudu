@@ -6,6 +6,8 @@ import type {
   BookSummary,
   ChapterContent,
   DailyReadingStat,
+  HighlightColor,
+  HighlightDto,
   ReadingProgress,
   ReadingStatsResponse,
   UserPreferences,
@@ -250,6 +252,54 @@ export function createBookmark(
 export function deleteBookmark(bookId: string, id: string): Promise<void> {
   return api<void>(
     `/api/books/${encodeURIComponent(bookId)}/bookmarks/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+  );
+}
+
+export function listHighlights(bookId: string): Promise<HighlightDto[]> {
+  return api<HighlightDto[]>(
+    `/api/books/${encodeURIComponent(bookId)}/highlights`,
+  );
+}
+
+/** 创建高亮；同锚点重复创建时服务端幂等返回已有记录 */
+export function createHighlight(
+  bookId: string,
+  body: {
+    chapterIndex: number;
+    startOffset: number;
+    endOffset: number;
+    color: HighlightColor;
+    excerpt: string;
+  },
+): Promise<HighlightDto> {
+  return api<HighlightDto>(
+    `/api/books/${encodeURIComponent(bookId)}/highlights`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+/** 修改高亮颜色 */
+export function patchHighlightColor(
+  bookId: string,
+  id: string,
+  color: HighlightColor,
+): Promise<HighlightDto> {
+  return api<HighlightDto>(
+    `/api/books/${encodeURIComponent(bookId)}/highlights/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ color }),
+    },
+  );
+}
+
+export function deleteHighlight(bookId: string, id: string): Promise<void> {
+  return api<void>(
+    `/api/books/${encodeURIComponent(bookId)}/highlights/${encodeURIComponent(id)}`,
     { method: "DELETE" },
   );
 }

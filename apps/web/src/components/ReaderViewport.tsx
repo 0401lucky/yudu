@@ -6,6 +6,7 @@ import {
   useState,
 } from "react";
 import type { FontFamilyId } from "../hooks/useLocalReaderPrefs";
+import type { ReaderHighlightBridge } from "../hooks/useReaderHighlights";
 import { renderMarkdown } from "../lib/mdRender";
 import {
   FONT_STACK,
@@ -30,6 +31,10 @@ interface ReaderViewportProps {
   onPrev: () => void;
   onNext: () => void;
   onToggleChrome: () => void;
+  /** 当前章号：供高亮层按章定位正文容器 */
+  chapterIndex?: number;
+  /** 文本高亮桥接：正文重排上报 + 点击命中转发 + 选区手势互斥 */
+  highlightBridge?: ReaderHighlightBridge;
 }
 
 const SWIPE_THRESHOLD = 48;
@@ -50,6 +55,8 @@ export default function ReaderViewport({
   onPrev,
   onNext,
   onToggleChrome,
+  chapterIndex,
+  highlightBridge,
 }: ReaderViewportProps) {
   const frameRef = useRef<HTMLDivElement>(null);
   const clipRef = useRef<HTMLDivElement>(null);
@@ -86,6 +93,8 @@ export default function ReaderViewport({
 
   useLayoutEffect(() => {
     measure();
+    // 正文 DOM/排版变化：通知高亮层重建 Range
+    highlightBridge?.notifyLayout();
   }, [
     measure,
     stride,
@@ -95,7 +104,14 @@ export default function ReaderViewport({
     lineHeight,
     fontFamily,
     pageMargin,
+    highlightBridge,
   ]);
+
+  // 同章翻页（含键盘翻页）：栏位平移后 fixed 气泡与锚点矩形错位，仅收起气泡
+  //（DOM 未变，高亮 Range 仍有效，无需重建）
+  useLayoutEffect(() => {
+    highlightBridge?.closePopover();
+  }, [pageIndex, highlightBridge]);
 
   useEffect(() => {
     const frame = frameRef.current;
@@ -126,6 +142,11 @@ export default function ReaderViewport({
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     if (!dragging.current || startX.current == null) return;
+    // 文本选择进行中：选区手势与拖动翻页互斥，复位页面位移
+    if (highlightBridge?.hasSelection()) {
+      setDragDx(0);
+      return;
+    }
     const dx = e.clientX - startX.current;
     const dy = e.clientY - (startY.current ?? e.clientY);
     if (axisLocked.current == null) {
@@ -137,7 +158,7 @@ export default function ReaderViewport({
       e.preventDefault();
       setDragDx(dx);
     }
-  }, []);
+  }, [highlightBridge]);
 
   const endDrag = useCallback(
     (e: React.PointerEvent) => {
@@ -154,6 +175,9 @@ export default function ReaderViewport({
       setAnimate(true);
       setDragDx(0);
 
+      // 存在正文选区：本手势属于文本选择，既不翻页也不切工具栏（交给高亮层）
+      if (highlightBridge?.hasSelection()) return;
+
       if (wasHorizontal && Math.abs(dx) > SWIPE_THRESHOLD) {
         if (dx < 0) onNext();
         else onPrev();
@@ -162,6 +186,8 @@ export default function ReaderViewport({
 
       // 未构成滑动：按点击位置分区（两侧翻页，中间唤出工具栏）
       if (Math.abs(dx) < 10 && Math.abs(dy) < 10) {
+        // 点击命中已有高亮/收起气泡：手势被高亮层消费
+        if (highlightBridge?.handleTap(e.clientX, e.clientY)) return;
         const frame = frameRef.current;
         if (!frame) return;
         const rect = frame.getBoundingClientRect();
@@ -171,7 +197,7 @@ export default function ReaderViewport({
         else onToggleChrome();
       }
     },
-    [onNext, onPrev, onToggleChrome],
+    [onNext, onPrev, onToggleChrome, highlightBridge],
   );
 
   const translateX = -(pageIndex * stride) + dragDx;
@@ -202,10 +228,12 @@ export default function ReaderViewport({
         <div ref={clipRef} className="min-h-0 w-full flex-1 overflow-hidden">
           <div
             ref={trackRef}
+            // 正文允许选择文本（父级 select-none 只保留给页面 chrome）
+            data-hl-chapter={chapterIndex}
             className={
               contentMode === "markdown"
-                ? "reader-track h-full break-words [overflow-wrap:anywhere]"
-                : "reader-track h-full whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
+                ? "reader-track h-full select-text break-words [overflow-wrap:anywhere]"
+                : "reader-track h-full select-text whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
             }
             style={{
               fontSize: `${fontSize}px`,

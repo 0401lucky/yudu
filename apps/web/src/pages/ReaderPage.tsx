@@ -2,6 +2,7 @@ import type {
   BookDetail,
   BookmarkDto,
   BookSearchMatch,
+  HighlightDto,
 } from "@yudu/shared";
 import { MAX_BOOKMARK_LABEL_CHARS } from "@yudu/shared";
 import {
@@ -27,6 +28,8 @@ import TocDrawer from "../components/TocDrawer";
 import { useThemePrefs } from "../components/ThemeProvider";
 import { ASSUMED_PAGE_CHARS, useBookmarks } from "../hooks/useBookmarks";
 import { useChapterWindow } from "../hooks/useChapterWindow";
+import { useHighlights } from "../hooks/useHighlights";
+import { useReaderHighlights } from "../hooks/useReaderHighlights";
 import type { LocalReaderPrefs } from "../hooks/useLocalReaderPrefs";
 import { useLocalReaderPrefs } from "../hooks/useLocalReaderPrefs";
 import { useProgressSync } from "../hooks/useProgressSync";
@@ -82,6 +85,26 @@ export default function ReaderPage() {
     error: bookmarkError,
     clearError: clearBookmarkError,
   } = useBookmarks(bookId, book?.chapters);
+
+  // 云端文本高亮：PDF 无章节化正文，不接高亮
+  const {
+    highlights,
+    add: addHighlight,
+    remove: removeHighlight,
+    recolor: recolorHighlight,
+    error: highlightError,
+    clearError: clearHighlightError,
+  } = useHighlights(book && !isPdf ? bookId : undefined);
+
+  // 高亮层：渲染（CSS Custom Highlight API）+ 选区/点击气泡，两种视口共用
+  const { bridge: highlightBridge, popover: highlightPopover } =
+    useReaderHighlights({
+      enabled: Boolean(book) && !isPdf,
+      highlights,
+      onCreate: addHighlight,
+      onRecolor: recolorHighlight,
+      onRemove: removeHighlight,
+    });
 
   // 换章/恢复进度时，等新章测量出页数后再落位
   const pendingPageRef = useRef<PendingPage>(null);
@@ -527,6 +550,26 @@ export default function ReaderPage() {
     [isScroll, chapterIndex, textLen, pageCount, jumpToChapter],
   );
 
+  // 标注列表跳转：以 startOffset 为锚点，与书签同款近似落位
+  const onSelectHighlight = useCallback(
+    (hl: HighlightDto) => {
+      if (isScroll) {
+        jumpToChapter(hl.chapterIndex, { charOffset: hl.startOffset });
+        return;
+      }
+      if (hl.chapterIndex === chapterIndex) {
+        const page =
+          textLen > 0
+            ? Math.floor((hl.startOffset / textLen) * pageCount)
+            : 0;
+        setPageIndex(Math.min(Math.max(0, page), Math.max(0, pageCount - 1)));
+      } else {
+        jumpToChapter(hl.chapterIndex, { charOffset: hl.startOffset });
+      }
+    },
+    [isScroll, chapterIndex, textLen, pageCount, jumpToChapter],
+  );
+
   // 搜索结果跳转：与书签同款近似落位（同章直接换算页，跨章走 charOffset 变体）
   const onSelectSearchMatch = useCallback(
     (match: BookSearchMatch) => {
@@ -562,6 +605,15 @@ export default function ReaderPage() {
     const timer = setTimeout(clearBookmarkError, 3500);
     return () => clearTimeout(timer);
   }, [bookmarkError, clearBookmarkError]);
+
+  // 标注增删改失败提示：同款短暂展示
+  useEffect(() => {
+    if (!highlightError) return;
+    const timer = setTimeout(clearHighlightError, 3500);
+    return () => clearTimeout(timer);
+  }, [highlightError, clearHighlightError]);
+
+  const actionError = bookmarkError ?? highlightError;
 
   const pageLabel = isPdf
     ? pdfCountKnown
@@ -660,6 +712,7 @@ export default function ReaderPage() {
             onPendingApplied={handlePendingApplied}
             onPosition={handleScrollPos}
             onToggleChrome={toggleChrome}
+            highlightBridge={highlightBridge}
           />
         ) : (
           <ReaderViewport
@@ -674,9 +727,14 @@ export default function ReaderPage() {
             onPrev={onPrev}
             onNext={onNext}
             onToggleChrome={toggleChrome}
+            chapterIndex={chapterIndex}
+            highlightBridge={highlightBridge}
           />
         )}
       </div>
+
+      {/* 高亮操作气泡（fixed 定位，选区/命中矩形上方） */}
+      {highlightPopover}
 
       <ReaderFooter
         visible={chromeVisible}
@@ -699,13 +757,13 @@ export default function ReaderPage() {
         />
       ) : null}
 
-      {/* 书签增删失败提示 */}
-      {bookmarkError ? (
+      {/* 书签/标注操作失败提示 */}
+      {actionError ? (
         <div
           role="alert"
           className="pointer-events-none fixed left-1/2 top-14 z-50 -translate-x-1/2 rounded-lg bg-black/80 px-4 py-2 text-sm text-white shadow-lg"
         >
-          {bookmarkError}
+          {actionError}
         </div>
       ) : null}
 
@@ -715,10 +773,13 @@ export default function ReaderPage() {
           chapters={book.chapters}
           currentIndex={chapterIndex}
           bookmarks={bookmarks}
+          highlights={highlights}
           onClose={() => setTocOpen(false)}
           onSelect={(idx) => jumpToChapter(idx, 0)}
           onSelectBookmark={onSelectBookmark}
           onRemoveBookmark={removeBookmark}
+          onSelectHighlight={onSelectHighlight}
+          onRemoveHighlight={removeHighlight}
         />
       ) : null}
 

@@ -254,6 +254,27 @@ body {
   background: color-mix(in srgb, var(--text) 30%, transparent);
 }
 
+/* 文本高亮底色（CSS Custom Highlight API）：
+   半透明色叠在纸面/夜间两种页底上均保持正文可读；夜间降低不透明度防止刺眼 */
+::highlight(yudu-hl-yellow) {
+  background-color: rgb(250 204 21 / 0.45);
+}
+::highlight(yudu-hl-green) {
+  background-color: rgb(74 222 128 / 0.45);
+}
+::highlight(yudu-hl-blue) {
+  background-color: rgb(96 165 250 / 0.45);
+}
+[data-theme="night"] ::highlight(yudu-hl-yellow) {
+  background-color: rgb(234 179 8 / 0.32);
+}
+[data-theme="night"] ::highlight(yudu-hl-green) {
+  background-color: rgb(34 197 94 / 0.3);
+}
+[data-theme="night"] ::highlight(yudu-hl-blue) {
+  background-color: rgb(59 130 246 / 0.32);
+}
+
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;

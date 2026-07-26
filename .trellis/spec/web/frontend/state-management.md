@@ -8,6 +8,7 @@ AuthProvider（用户会话）
         └── 页面 useState / 局部 hooks
               ├── useProgressSync → PUT /api/progress
               ├── useBookmarks → /api/books/:id/bookmarks（云端）
+              ├── useHighlights → /api/books/:id/highlights（云端）
               ├── useChapterWindow → GET /api/books/:id/chapters/:idx（三章窗口缓存）
               └── useLocalReaderPrefs → localStorage
 ```
@@ -45,7 +46,7 @@ AuthProvider（用户会话）
 
 | 数据 | 位置 |
 |------|------|
-| 用户、书架、章节、进度、主题字号行距边距、书签 | API / D1 |
+| 用户、书架、章节、进度、主题字号行距边距、书签、高亮 | API / D1 |
 | 字体 serif/sans、亮度蒙层、阅读模式 page/scroll | localStorage `yudu.reader.local` |
 
 扩展「仅本机」阅读选项时，优先 `useLocalReaderPrefs`，避免无迁移就改 D1。

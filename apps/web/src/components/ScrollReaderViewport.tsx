@@ -1,6 +1,7 @@
 import type { ChapterContent } from "@yudu/shared";
 import { memo, useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import type { FontFamilyId } from "../hooks/useLocalReaderPrefs";
+import type { ReaderHighlightBridge } from "../hooks/useReaderHighlights";
 import { mdPlainLengthApprox, renderMarkdown } from "../lib/mdRender";
 import type { PageMarginId } from "./readerTypography";
 import {
@@ -39,6 +40,8 @@ interface ScrollReaderViewportProps {
   /** 节流上报当前位置：当前章（视口顶部+1/3 屏高所在章）+ 章内高度比例 */
   onPosition: (chapterIndex: number, offsetRatio: number) => void;
   onToggleChrome: () => void;
+  /** 文本高亮桥接：正文 DOM 变化上报 + 点击命中转发 */
+  highlightBridge?: ReaderHighlightBridge;
 }
 
 /** 位置上报节流间隔 */
@@ -73,6 +76,7 @@ function ScrollReaderViewport({
   onPendingApplied,
   onPosition,
   onToggleChrome,
+  highlightBridge,
 }: ScrollReaderViewportProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef(new Map<number, HTMLElement>());
@@ -178,6 +182,11 @@ function ScrollReaderViewport({
     scrollerRef.current?.focus({ preventScroll: true });
   }, []);
 
+  // 正文 DOM 变化（窗口平移/占位展开/内容模式切换）：通知高亮层重建 Range
+  useLayoutEffect(() => {
+    highlightBridge?.notifyLayout();
+  }, [items, contentMode, highlightBridge]);
+
   // 每次渲染后：先消费待落位，否则按锚点补偿几何变化
   useLayoutEffect(() => {
     const scroller = scrollerRef.current;
@@ -264,10 +273,12 @@ function ScrollReaderViewport({
         Math.abs(e.clientX - start.x) < TAP_THRESHOLD &&
         Math.abs(e.clientY - start.y) < TAP_THRESHOLD
       ) {
+        // 点击命中已有高亮/存在选区/收起气泡：手势被高亮层消费，不切工具栏
+        if (highlightBridge?.handleTap(e.clientX, e.clientY)) return;
         onToggleChrome();
       }
     },
-    [onToggleChrome],
+    [onToggleChrome, highlightBridge],
   );
 
   const measureMax = `min(100%, ${MEASURE_EM[pageMargin]}em)`;
@@ -316,10 +327,12 @@ function ScrollReaderViewport({
             </h2>
             {item.content ? (
               <div
+                // 正文允许选择文本（根容器 select-none 只保留给章题等 chrome）
+                data-hl-chapter={item.index}
                 className={
                   contentMode === "markdown"
-                    ? "break-words [overflow-wrap:anywhere]"
-                    : "whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
+                    ? "select-text break-words [overflow-wrap:anywhere]"
+                    : "select-text whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
                 }
               >
                 {contentMode === "markdown"

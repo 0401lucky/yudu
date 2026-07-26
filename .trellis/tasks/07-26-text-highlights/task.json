@@ -3,7 +3,7 @@
   "name": "text-highlights",
   "title": "文本高亮标注",
   "description": "选中文本高亮标注,云端同步,翻页/滚动两种模式均可用",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
