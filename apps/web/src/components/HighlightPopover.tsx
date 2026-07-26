@@ -23,6 +23,8 @@ interface HighlightPopoverProps {
   onPick: (color: HighlightColor) => void;
   /** 写想法：create 模式先建高亮再开编辑；edit 模式直接开编辑 */
   onNote?: () => void;
+  /** 分享书摘卡片（仅 edit 模式展示） */
+  onShare?: () => void;
   onDelete?: () => void;
 }
 
@@ -53,6 +55,7 @@ export default function HighlightPopover({
   hasNote = false,
   onPick,
   onNote,
+  onShare,
   onDelete,
 }: HighlightPopoverProps) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -132,6 +135,22 @@ export default function HighlightPopover({
                 className="flex h-7 items-center rounded-full px-2 text-sm text-[var(--text-muted)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
               >
                 {mode === "create" ? "想法" : hasNote ? "编辑想法" : "写想法"}
+              </button>
+            </>
+          ) : null}
+          {mode === "edit" && onShare ? (
+            <>
+              <span
+                aria-hidden
+                className="mx-0.5 h-5 w-px bg-[var(--border)]"
+              />
+              <button
+                type="button"
+                aria-label="分享书摘"
+                onClick={onShare}
+                className="flex h-7 items-center rounded-full px-2 text-sm text-[var(--text-muted)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              >
+                分享
               </button>
             </>
           ) : null}

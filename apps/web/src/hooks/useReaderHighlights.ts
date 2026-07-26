@@ -41,6 +41,8 @@ interface UseReaderHighlightsParams {
   onRemove: (hl: HighlightDto) => void;
   /** 写想法：打开笔记编辑面板（create 模式已先触发 onCreate） */
   onNote: (target: HighlightAnchorKey) => void;
+  /** 分享书摘卡片：edit 气泡点「分享」时回传命中的高亮 */
+  onShare?: (hl: HighlightDto) => void;
 }
 
 type PopoverState =
@@ -175,6 +177,7 @@ export function useReaderHighlights({
   onRecolor,
   onRemove,
   onNote,
+  onShare,
 }: UseReaderHighlightsParams): {
   bridge: ReaderHighlightBridge;
   popover: ReactNode;
@@ -197,6 +200,8 @@ export function useReaderHighlights({
   onRemoveRef.current = onRemove;
   const onNoteRef = useRef(onNote);
   onNoteRef.current = onNote;
+  const onShareRef = useRef(onShare);
+  onShareRef.current = onShare;
 
   // 手势状态：选区调整中不弹泡；气泡因外点收起时吞掉该次 tap
   const pointerActiveRef = useRef(false);
@@ -423,6 +428,12 @@ export function useReaderHighlights({
     setPopover(null);
   }, []);
 
+  const handleShare = useCallback(() => {
+    const p = popoverRef.current;
+    if (p?.kind === "edit") onShareRef.current?.(p.highlight);
+    setPopover(null);
+  }, []);
+
   const popoverNode: ReactNode = popover
     ? createElement(HighlightPopover, {
         anchor: popover.rect,
@@ -434,6 +445,8 @@ export function useReaderHighlights({
           popover.kind === "edit" ? popover.highlight.note != null : false,
         onPick: handlePick,
         onNote: handleNote,
+        onShare:
+          popover.kind === "edit" && onShare != null ? handleShare : undefined,
         onDelete: popover.kind === "edit" ? handleDelete : undefined,
       })
     : null;

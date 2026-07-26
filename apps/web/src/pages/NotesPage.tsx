@@ -2,12 +2,14 @@ import type { HighlightWithChapter, NotesBookGroup } from "@yudu/shared";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import NoteEditorSheet from "../components/NoteEditorSheet";
+import QuoteCardModal from "../components/QuoteCardModal";
 import {
   ApiError,
   deleteHighlight,
   getNotes,
   updateHighlightNote,
 } from "../lib/api";
+import type { QuoteCardData } from "../lib/quoteCardRender";
 
 /** 列表小圆点颜色（与 HighlightPopover 取色一致） */
 const HL_DOT_COLOR: Record<HighlightWithChapter["color"], string> = {
@@ -28,6 +30,8 @@ export default function NotesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
+  // 书摘分享卡片内容；null = 弹窗关闭
+  const [shareTarget, setShareTarget] = useState<QuoteCardData | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -243,6 +247,21 @@ export default function NotesPage() {
                         <button
                           type="button"
                           onClick={() =>
+                            setShareTarget({
+                              excerpt: hl.excerpt,
+                              note: hl.note,
+                              bookTitle: group.bookTitle,
+                              bookAuthor: group.bookAuthor,
+                              createdAt: hl.createdAt,
+                            })
+                          }
+                          className="rounded px-2 py-1 text-xs text-[var(--text-muted)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                        >
+                          分享
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
                             setEditTarget({ bookId: group.bookId, highlight: hl })
                           }
                           className="rounded px-2 py-1 text-xs text-[var(--text-muted)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
@@ -274,6 +293,13 @@ export default function NotesPage() {
         onClose={() => setEditTarget(null)}
         onSave={(text) => void handleSaveNote(text)}
       />
+
+      {shareTarget ? (
+        <QuoteCardModal
+          data={shareTarget}
+          onClose={() => setShareTarget(null)}
+        />
+      ) : null}
     </main>
   );
 }

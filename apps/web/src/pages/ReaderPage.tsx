@@ -16,6 +16,7 @@ import {
 } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import NoteEditorSheet from "../components/NoteEditorSheet";
+import QuoteCardModal from "../components/QuoteCardModal";
 import { ReaderFooter, ReaderHeader } from "../components/ReaderChrome";
 import ReaderSettingsSheet from "../components/ReaderSettingsSheet";
 import ReaderViewport from "../components/ReaderViewport";
@@ -40,6 +41,7 @@ import { useReadingClock } from "../hooks/useReadingClock";
 import type { TtsParagraph, UseTtsReturn } from "../hooks/useTts";
 import { useTts } from "../hooks/useTts";
 import { ApiError, getBook, getProgress, searchBook } from "../lib/api";
+import type { QuoteCardData } from "../lib/quoteCardRender";
 import { mdPlainLengthApprox } from "../lib/mdRender";
 import { offsetsToRange } from "../lib/textAnchor";
 
@@ -125,6 +127,22 @@ export default function ReaderPage() {
     clearError: clearHighlightError,
   } = useHighlights(book && !isPdf ? bookId : undefined);
 
+  // 书摘分享卡片内容；null = 弹窗关闭
+  const [shareTarget, setShareTarget] = useState<QuoteCardData | null>(null);
+  const handleShareHighlight = useCallback(
+    (hl: HighlightDto) => {
+      if (!book) return;
+      setShareTarget({
+        excerpt: hl.excerpt,
+        note: hl.note,
+        bookTitle: book.title,
+        bookAuthor: book.author,
+        createdAt: hl.createdAt,
+      });
+    },
+    [book],
+  );
+
   // 笔记编辑目标：以锚点定位（乐观创建期间 id 会变，锚点不变）
   const [noteAnchor, setNoteAnchor] = useState<HighlightAnchorKey | null>(null);
   const noteHl = useMemo(
@@ -149,6 +167,7 @@ export default function ReaderPage() {
       onRecolor: recolorHighlight,
       onRemove: removeHighlight,
       onNote: setNoteAnchor,
+      onShare: handleShareHighlight,
     });
 
   const closeNoteEditor = useCallback(() => setNoteAnchor(null), []);
@@ -993,6 +1012,13 @@ export default function ReaderPage() {
           initialNote={noteHl?.note ?? ""}
           onClose={closeNoteEditor}
           onSave={saveNote}
+        />
+      ) : null}
+
+      {shareTarget ? (
+        <QuoteCardModal
+          data={shareTarget}
+          onClose={() => setShareTarget(null)}
         />
       ) : null}
     </main>
