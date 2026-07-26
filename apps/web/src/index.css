@@ -274,6 +274,13 @@ body {
 [data-theme="night"] ::highlight(yudu-hl-blue) {
   background-color: rgb(59 130 246 / 0.32);
 }
+/* TTS 当前朗读段底色：取琥珀强调色调淡，与三色标注区分；夜间降低不透明度 */
+::highlight(yudu-tts) {
+  background-color: rgb(196 165 116 / 0.3);
+}
+[data-theme="night"] ::highlight(yudu-tts) {
+  background-color: rgb(196 165 116 / 0.22);
+}
 /* 带笔记的高亮：叠加下划虚线标识（不支持 Custom Highlight 装饰的浏览器静默降级） */
 ::highlight(yudu-noted) {
   text-decoration: underline dashed;

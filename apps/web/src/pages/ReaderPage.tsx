@@ -26,6 +26,7 @@ import type {
 import ScrollReaderViewport from "../components/ScrollReaderViewport";
 import SearchDrawer from "../components/SearchDrawer";
 import TocDrawer from "../components/TocDrawer";
+import TtsControlBar from "../components/TtsControlBar";
 import { useThemePrefs } from "../components/ThemeProvider";
 import { ASSUMED_PAGE_CHARS, useBookmarks } from "../hooks/useBookmarks";
 import { useChapterWindow } from "../hooks/useChapterWindow";
@@ -36,14 +37,22 @@ import type { LocalReaderPrefs } from "../hooks/useLocalReaderPrefs";
 import { useLocalReaderPrefs } from "../hooks/useLocalReaderPrefs";
 import { useProgressSync } from "../hooks/useProgressSync";
 import { useReadingClock } from "../hooks/useReadingClock";
+import type { TtsParagraph, UseTtsReturn } from "../hooks/useTts";
+import { useTts } from "../hooks/useTts";
 import { ApiError, getBook, getProgress, searchBook } from "../lib/api";
 import { mdPlainLengthApprox } from "../lib/mdRender";
+import { offsetsToRange } from "../lib/textAnchor";
 
 // pdf.js 体积大（~1MB+），懒加载让它只进独立 chunk，不拖累主 bundle
 const PdfReaderView = lazy(() => import("../components/PdfReaderView"));
 
 /** 换章后想落到的页：数字=具体页；"last"=末页；对象=按字符偏移落页；null=不指定 */
 type PendingPage = number | "last" | { charOffset: number } | null;
+
+/** TTS 朗读段高亮：CSS Custom Highlight API 特性检测（不支持则静默降级为无标识） */
+const TTS_HIGHLIGHT_SUPPORTED =
+  typeof CSS !== "undefined" && "highlights" in CSS;
+const TTS_HIGHLIGHT_NAME = "yudu-tts";
 
 /** 解析笔记汇总页等外部入口的跳转参数 ?chapter=X&offset=Y（非法时忽略） */
 function parseJumpParams(
@@ -153,6 +162,14 @@ export default function ReaderPage() {
 
   // 换章/恢复进度时，等新章测量出页数后再落位
   const pendingPageRef = useRef<PendingPage>(null);
+
+  // ---- 听书（TTS）----
+  // 当前朗读段：驱动 CSS 高亮与视口跟随
+  const [ttsPara, setTtsPara] = useState<TtsParagraph | null>(null);
+  // TTS 自身发起的跳章标记：jumpToChapter 里跳过「手动跳转重启听书」
+  const ttsJumpRef = useRef(false);
+  // hook 返回值的渲染期镜像：跳转回调经 ref 读取，无需把 tts 加进依赖
+  const ttsRef = useRef<UseTtsReturn | null>(null);
 
   useEffect(() => {
     if (!bookId) return;
@@ -350,6 +367,15 @@ export default function ReaderPage() {
 
   const jumpToChapter = useCallback(
     (idx: number, page: PendingPage = 0) => {
+      // 手动跳转（目录/书签/搜索/进度条，非 TTS 自身跨章）：听书从新位置重新开始
+      const fromTts = ttsJumpRef.current;
+      ttsJumpRef.current = false;
+      const tts = ttsRef.current;
+      if (!fromTts && tts && tts.state !== "idle") {
+        const charOffset =
+          typeof page === "object" && page !== null ? page.charOffset : 0;
+        tts.start(idx, charOffset);
+      }
       // 滚动模式：目录/书签/搜索跳转统一走 (chapterIndex, charOffset) 待落位
       if (isScroll) {
         const charOffset =
@@ -488,6 +514,11 @@ export default function ReaderPage() {
         setPageIndex(
           Math.min(Math.max(0, Math.round(within * pageCount)), pageCount - 1),
         );
+        // 同章 seek 不经 jumpToChapter：听书进行中同样从新位置重新开始
+        const tts = ttsRef.current;
+        if (tts && tts.state !== "idle") {
+          tts.start(idx, Math.round(Math.max(0, within) * textLen));
+        }
       } else {
         jumpToChapter(idx, 0);
       }
@@ -582,64 +613,39 @@ export default function ReaderPage() {
     scrollRatio,
   ]);
 
-  const onSelectBookmark = useCallback(
-    (mark: BookmarkDto) => {
-      // 滚动模式：同章/跨章统一走 charOffset 待落位
-      if (isScroll) {
-        jumpToChapter(mark.chapterIndex, { charOffset: mark.charOffset });
+  // 书签/标注/搜索共用跳转：翻页模式同章直接换算页，其余统一走 charOffset 待落位
+  const jumpToOffset = useCallback(
+    (idx: number, charOffset: number) => {
+      if (!isScroll && idx === chapterIndex) {
+        const page =
+          textLen > 0 ? Math.floor((charOffset / textLen) * pageCount) : 0;
+        setPageIndex(Math.min(Math.max(0, page), Math.max(0, pageCount - 1)));
+        // 同章跳转不经 jumpToChapter：听书进行中同样从新位置重新开始
+        const tts = ttsRef.current;
+        if (tts && tts.state !== "idle") tts.start(idx, charOffset);
         return;
       }
-      if (mark.chapterIndex === chapterIndex) {
-        const page =
-          textLen > 0
-            ? Math.floor((mark.charOffset / textLen) * pageCount)
-            : 0;
-        setPageIndex(Math.min(Math.max(0, page), Math.max(0, pageCount - 1)));
-      } else {
-        jumpToChapter(mark.chapterIndex, { charOffset: mark.charOffset });
-      }
+      jumpToChapter(idx, { charOffset });
     },
     [isScroll, chapterIndex, textLen, pageCount, jumpToChapter],
+  );
+
+  const onSelectBookmark = useCallback(
+    (mark: BookmarkDto) => jumpToOffset(mark.chapterIndex, mark.charOffset),
+    [jumpToOffset],
   );
 
   // 标注列表跳转：以 startOffset 为锚点，与书签同款近似落位
   const onSelectHighlight = useCallback(
-    (hl: HighlightDto) => {
-      if (isScroll) {
-        jumpToChapter(hl.chapterIndex, { charOffset: hl.startOffset });
-        return;
-      }
-      if (hl.chapterIndex === chapterIndex) {
-        const page =
-          textLen > 0
-            ? Math.floor((hl.startOffset / textLen) * pageCount)
-            : 0;
-        setPageIndex(Math.min(Math.max(0, page), Math.max(0, pageCount - 1)));
-      } else {
-        jumpToChapter(hl.chapterIndex, { charOffset: hl.startOffset });
-      }
-    },
-    [isScroll, chapterIndex, textLen, pageCount, jumpToChapter],
+    (hl: HighlightDto) => jumpToOffset(hl.chapterIndex, hl.startOffset),
+    [jumpToOffset],
   );
 
-  // 搜索结果跳转：与书签同款近似落位（同章直接换算页，跨章走 charOffset 变体）
+  // 搜索结果跳转：与书签同款近似落位
   const onSelectSearchMatch = useCallback(
-    (match: BookSearchMatch) => {
-      if (isScroll) {
-        jumpToChapter(match.chapterIndex, { charOffset: match.charOffset });
-        return;
-      }
-      if (match.chapterIndex === chapterIndex) {
-        const page =
-          textLen > 0
-            ? Math.floor((match.charOffset / textLen) * pageCount)
-            : 0;
-        setPageIndex(Math.min(Math.max(0, page), Math.max(0, pageCount - 1)));
-      } else {
-        jumpToChapter(match.chapterIndex, { charOffset: match.charOffset });
-      }
-    },
-    [isScroll, chapterIndex, textLen, pageCount, jumpToChapter],
+    (match: BookSearchMatch) =>
+      jumpToOffset(match.chapterIndex, match.charOffset),
+    [jumpToOffset],
   );
 
   const onSearch = useCallback(
@@ -691,6 +697,115 @@ export default function ReaderPage() {
     [chapterWindow, book],
   );
 
+  // ---- 听书接入 ----
+  // TTS 跨章继续：标记为 TTS 自身跳章，jumpToChapter 不再触发重启
+  const handleTtsRequestChapter = useCallback(
+    (idx: number) => {
+      ttsJumpRef.current = true;
+      jumpToChapter(idx, 0);
+    },
+    [jumpToChapter],
+  );
+
+  const tts = useTts({
+    chapterCount: book?.chapters.length ?? 0,
+    onParagraph: setTtsPara,
+    onRequestChapter: handleTtsRequestChapter,
+  });
+  ttsRef.current = tts;
+
+  // 顶栏「听书」：从当前位置（charOffset 口径，与书签/进度同源）所在段开始
+  const startTts = useCallback(() => {
+    if (!chapter) return;
+    const len = textLenRef.current;
+    const charOffset = isScroll
+      ? Math.round(scrollRatioRef.current * len)
+      : pageCount > 0
+        ? Math.round((pageIndex / pageCount) * len)
+        : 0;
+    ttsRef.current?.start(chapterIndex, charOffset);
+  }, [chapter, isScroll, pageCount, pageIndex, chapterIndex]);
+
+  // 停止/读完全书后清掉朗读段标识
+  useEffect(() => {
+    if (tts.state === "idle" && ttsPara) setTtsPara(null);
+  }, [tts.state, ttsPara]);
+
+  // 切书时停止朗读（离开页面由 hook 卸载清理兜底）
+  useEffect(
+    () => () => {
+      ttsRef.current?.stop();
+    },
+    [bookId],
+  );
+
+  // 当前朗读段：注册 yudu-tts 命名高亮（降级静默）+ 视口跟随
+  useEffect(() => {
+    if (!ttsPara) {
+      if (TTS_HIGHLIGHT_SUPPORTED) CSS.highlights.delete(TTS_HIGHLIGHT_NAME);
+      return;
+    }
+    const el = document.querySelector<HTMLElement>(
+      `[data-hl-chapter="${ttsPara.chapterIndex}"]`,
+    );
+    const range = el
+      ? offsetsToRange(el, ttsPara.start, ttsPara.end)
+      : null;
+    if (TTS_HIGHLIGHT_SUPPORTED) {
+      if (range) CSS.highlights.set(TTS_HIGHLIGHT_NAME, new Highlight(range));
+      else CSS.highlights.delete(TTS_HIGHLIGHT_NAME);
+    }
+    if (!el || !range) return;
+    // 跟随以段首矩形为准（段落跨页/跨屏时取起点）
+    const rect = range.getClientRects()[0] ?? range.getBoundingClientRect();
+    if (isScroll) {
+      const scroller = el.closest<HTMLElement>(".overflow-y-auto");
+      if (!scroller) return;
+      const sRect = scroller.getBoundingClientRect();
+      // 段首越出视口上缘或落到下方 60% 之外时，滚到视口上部 1/4 处
+      if (rect.top < sRect.top || rect.top > sRect.top + sRect.height * 0.6) {
+        const target =
+          scroller.scrollTop + (rect.top - sRect.top) - sRect.height * 0.25;
+        const reduced = window.matchMedia(
+          "(prefers-reduced-motion: reduce)",
+        ).matches;
+        scroller.scrollTo({
+          top: Math.max(0, target),
+          behavior: reduced ? "auto" : "smooth",
+        });
+      }
+      return;
+    }
+    // 翻页模式：段首矩形相对多栏容器的横向位置直接得出所在页（列宽=容器宽）
+    if (pendingPageRef.current !== null) return;
+    const stride = el.clientWidth;
+    if (stride <= 0) return;
+    const page = Math.floor(
+      (rect.left - el.getBoundingClientRect().left) / stride + 0.001,
+    );
+    setPageIndex((cur) => {
+      const target = Math.min(Math.max(0, page), Math.max(0, pageCount - 1));
+      return target === cur ? cur : target;
+    });
+  }, [
+    ttsPara,
+    isScroll,
+    pageCount,
+    scrollItems,
+    prefs.fontSize,
+    prefs.lineHeight,
+    prefs.pageMargin,
+    localPrefs.fontFamily,
+  ]);
+
+  // 离开阅读页：清理 TTS 命名高亮
+  useEffect(
+    () => () => {
+      if (TTS_HIGHLIGHT_SUPPORTED) CSS.highlights.delete(TTS_HIGHLIGHT_NAME);
+    },
+    [],
+  );
+
   if (loading) {
     return (
       <main className="flex min-h-[100dvh] items-center justify-center p-8">
@@ -722,6 +837,7 @@ export default function ReaderPage() {
         onOpenToc={!isPdf ? () => setTocOpen(true) : undefined}
         onToggleBookmark={!isPdf ? onToggleBookmark : undefined}
         onOpenSearch={!isPdf ? () => setSearchOpen(true) : undefined}
+        onStartTts={!isPdf && tts.supported ? startTts : undefined}
       />
 
       <div className="relative min-h-0 flex-1 overflow-hidden">
@@ -799,6 +915,20 @@ export default function ReaderPage() {
         }
         onOpenSettings={!isPdf ? () => setSettingsOpen(true) : undefined}
       />
+
+      {/* 听书控制条：进行中常驻底部，不随工具栏隐藏 */}
+      {tts.state !== "idle" ? (
+        <TtsControlBar
+          state={tts.state}
+          rate={tts.rate}
+          voices={tts.voices}
+          voiceURI={tts.voiceURI}
+          onToggle={tts.toggle}
+          onStop={tts.stop}
+          onRate={tts.setRate}
+          onVoice={tts.setVoiceURI}
+        />
+      ) : null}
 
       {/* 亮度蒙层：固定定位，pointer-events-none，不压暗菜单（z 低于抽屉/面板） */}
       {localPrefs.brightness < 1 ? (
