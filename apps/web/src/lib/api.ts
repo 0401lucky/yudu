@@ -142,6 +142,17 @@ export function deleteBook(bookId: string): Promise<void> {
   });
 }
 
+/** 更新书籍分组；null / 空串 = 移出分组，返回更新后的摘要 */
+export function updateBookGroup(
+  bookId: string,
+  group: string | null,
+): Promise<BookSummary> {
+  return api<BookSummary>(`/api/books/${encodeURIComponent(bookId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ group }),
+  });
+}
+
 /** 从源文件重新解析 Markdown 书 */
 export function reparseBook(bookId: string): Promise<BookSummary> {
   return api<BookSummary>(

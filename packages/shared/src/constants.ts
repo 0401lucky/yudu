@@ -19,3 +19,5 @@ export const MAX_HIGHLIGHT_CHARS = 1000;
 export const MAX_HIGHLIGHT_EXCERPT_CHARS = 120;
 /** 单条高亮笔记最大长度（前后端共用校验口径） */
 export const MAX_HIGHLIGHT_NOTE_CHARS = 500;
+/** 书架分组名最大长度（trim 后 1–30，前后端共用校验口径） */
+export const MAX_BOOK_GROUP_CHARS = 30;

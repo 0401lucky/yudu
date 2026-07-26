@@ -9,6 +9,10 @@ interface BookCardProps {
   /** 仅 md 书：从源文件重新解析 */
   onReparse?: (bookId: string) => void;
   reparsing?: boolean;
+  /** 管理模式：卡片变复选，点击即勾选，不进阅读器 */
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (bookId: string) => void;
 }
 
 function statusLabel(status: BookSummary["status"]): string | null {
@@ -23,17 +27,25 @@ export default function BookCard({
   deleting,
   onReparse,
   reparsing,
+  selectable,
+  selected,
+  onToggleSelect,
 }: BookCardProps) {
   const navigate = useNavigate();
   const [coverFailed, setCoverFailed] = useState(false);
   const badge = statusLabel(book.status);
-  const canOpen = book.status === "ready";
+  const canOpen = book.status === "ready" && !selectable;
   const canReparse =
+    !selectable &&
     book.format === "md" &&
     book.status === "ready" &&
     typeof onReparse === "function";
 
   function handleOpen() {
+    if (selectable) {
+      onToggleSelect?.(book.id);
+      return;
+    }
     if (!canOpen) return;
     navigate(`/read/${book.id}`);
   }
@@ -58,21 +70,34 @@ export default function BookCard({
 
   return (
     <article
-      className={`group relative flex flex-col rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] transition-all duration-200 ${
-        canOpen
-          ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/30 focus-within:ring-2 focus-within:ring-[var(--accent)]"
-          : "opacity-90"
+      className={`group relative flex flex-col rounded-lg border bg-[var(--bg-elevated)] transition-all duration-200 ${
+        selectable && selected
+          ? "border-[var(--accent)] ring-2 ring-[var(--accent)]"
+          : "border-[var(--border)]"
+      } ${
+        selectable
+          ? "cursor-pointer"
+          : canOpen
+            ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/30 focus-within:ring-2 focus-within:ring-[var(--accent)]"
+            : "opacity-90"
       }`}
       onClick={handleOpen}
       onKeyDown={(e) => {
-        if (canOpen && (e.key === "Enter" || e.key === " ")) {
+        if ((selectable || canOpen) && (e.key === "Enter" || e.key === " ")) {
           e.preventDefault();
           handleOpen();
         }
       }}
-      role={canOpen ? "button" : undefined}
-      tabIndex={canOpen ? 0 : undefined}
-      aria-label={canOpen ? `打开《${book.title}》` : `《${book.title}》${badge ?? ""}`}
+      role={selectable ? "checkbox" : canOpen ? "button" : undefined}
+      aria-checked={selectable ? !!selected : undefined}
+      tabIndex={selectable || canOpen ? 0 : undefined}
+      aria-label={
+        selectable
+          ? `选择《${book.title}》`
+          : canOpen
+            ? `打开《${book.title}》`
+            : `《${book.title}》${badge ?? ""}`
+      }
     >
       {/* 封面 2:3 */}
       <div className="relative aspect-[2/3] w-full overflow-hidden rounded-t-lg bg-[var(--bg)]">
@@ -109,8 +134,22 @@ export default function BookCard({
           </span>
         ) : null}
 
-        {/* PDF 格式徽标：与状态徽标分居两角 */}
-        {book.format === "pdf" ? (
+        {/* 管理模式复选浮层：右上角勾选圆点 */}
+        {selectable ? (
+          <span
+            aria-hidden="true"
+            className={`absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border text-xs font-bold ${
+              selected
+                ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--bg)]"
+                : "border-[var(--border)] bg-[color:color-mix(in_srgb,var(--bg)_80%,transparent)] text-transparent"
+            }`}
+          >
+            ✓
+          </span>
+        ) : null}
+
+        {/* PDF 格式徽标：与状态徽标分居两角（管理模式让位给复选点） */}
+        {book.format === "pdf" && !selectable ? (
           <span className="absolute right-2 top-2 rounded bg-[color:color-mix(in_srgb,var(--bg)_80%,transparent)] px-1.5 py-0.5 text-[10px] font-semibold tracking-wider text-[var(--accent)]">
             PDF
           </span>
@@ -145,7 +184,11 @@ export default function BookCard({
                   : "未读"
                 : book.format.toUpperCase()}
           </span>
-          <div className="flex items-center gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+          <div
+            className={`flex items-center gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 ${
+              selectable ? "hidden" : ""
+            }`}
+          >
             {canReparse ? (
               <button
                 type="button"

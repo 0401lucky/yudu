@@ -71,6 +71,8 @@ type ExistingBook = {
   format: string;
   cover_r2_key: string | null;
   chapter_count: number;
+  created_at: number;
+  group_name: string | null;
 };
 
 /**
@@ -212,6 +214,9 @@ async function createPdfBook(
       chapterCount: 0,
       progressPercent: null,
       updatedAt: readyAt,
+      createdAt: now,
+      lastReadAt: null,
+      group: null,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -238,6 +243,9 @@ async function createPdfBook(
       chapterCount: 0,
       progressPercent: null,
       updatedAt: failedAt,
+      createdAt: now,
+      lastReadAt: null,
+      group: null,
     };
   }
 }
@@ -276,7 +284,7 @@ async function findReadyBookByTitle(
   // SQLite lower() 对中文无影响；trim 后精确匹配标题
   // 排除 pdf：PDF 不参与系列追加（同名 PDF 各自成书，文本章节也不得追加到 PDF 书上）
   const row = await env.DB.prepare(
-    `SELECT id, title, author, format, cover_r2_key, chapter_count
+    `SELECT id, title, author, format, cover_r2_key, chapter_count, created_at, group_name
      FROM books
      WHERE user_id = ? AND status = 'ready' AND title = ? AND format != 'pdf'
      ORDER BY updated_at DESC
@@ -498,6 +506,10 @@ async function appendChaptersToBook(
       chapterCount: merged.length,
       progressPercent: null,
       updatedAt: now,
+      createdAt: book.created_at,
+      // 追加后前端会整表刷新，此处不再单查进度
+      lastReadAt: null,
+      group: book.group_name,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -515,6 +527,9 @@ async function appendChaptersToBook(
       chapterCount: book.chapter_count,
       progressPercent: null,
       updatedAt: Date.now(),
+      createdAt: book.created_at,
+      lastReadAt: null,
+      group: book.group_name,
     };
   }
 }
@@ -664,6 +679,9 @@ async function createBookFromGroup(
       chapterCount: allChapters.length,
       progressPercent: null,
       updatedAt: readyAt,
+      createdAt: now,
+      lastReadAt: null,
+      group: null,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -690,6 +708,9 @@ async function createBookFromGroup(
       chapterCount: 0,
       progressPercent: null,
       updatedAt: failedAt,
+      createdAt: now,
+      lastReadAt: null,
+      group: null,
     };
   }
 }
@@ -737,7 +758,8 @@ export async function reparseBook(
   bookId: string,
 ): Promise<BookSummary> {
   const book = await env.DB.prepare(
-    `SELECT id, title, author, format, cover_r2_key, source_r2_key, status, chapter_count
+    `SELECT id, title, author, format, cover_r2_key, source_r2_key, status, chapter_count,
+       created_at, group_name
      FROM books WHERE id = ? AND user_id = ?`,
   )
     .bind(bookId, userId)
@@ -750,6 +772,8 @@ export async function reparseBook(
       source_r2_key: string | null;
       status: string;
       chapter_count: number;
+      created_at: number;
+      group_name: string | null;
     }>();
 
   if (!book) {
@@ -831,7 +855,7 @@ export async function reparseBook(
 
     // 进度：夹取 chapter_index
     const prog = await env.DB.prepare(
-      `SELECT chapter_index, char_offset, page_in_chapter FROM reading_progress
+      `SELECT chapter_index, char_offset, page_in_chapter, updated_at FROM reading_progress
        WHERE user_id = ? AND book_id = ?`,
     )
       .bind(userId, bookId)
@@ -839,9 +863,12 @@ export async function reparseBook(
         chapter_index: number;
         char_offset: number;
         page_in_chapter: number | null;
+        updated_at: number;
       }>();
 
+    let lastReadAt: number | null = null;
     if (prog) {
+      lastReadAt = prog.updated_at;
       const maxIdx = Math.max(0, chapters.length - 1);
       const clamped = Math.min(Math.max(0, prog.chapter_index), maxIdx);
       if (clamped !== prog.chapter_index) {
@@ -851,6 +878,7 @@ export async function reparseBook(
         )
           .bind(clamped, readyAt, userId, bookId)
           .run();
+        lastReadAt = readyAt;
       }
     }
 
@@ -872,6 +900,9 @@ export async function reparseBook(
       chapterCount: chapters.length,
       progressPercent,
       updatedAt: readyAt,
+      createdAt: book.created_at,
+      lastReadAt,
+      group: book.group_name,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

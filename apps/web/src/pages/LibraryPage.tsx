@@ -1,9 +1,15 @@
+import { MAX_BOOK_GROUP_CHARS } from "@yudu/shared";
 import type { BookSummary, DailyReadingStat } from "@yudu/shared";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import BookCard from "../components/BookCard";
 import ImportDropzone from "../components/ImportDropzone";
 import ReadingStatsBar from "../components/ReadingStatsBar";
+import ShelfToolbar, {
+  isShelfSortBy,
+  SHELF_SORT_KEY,
+  type ShelfSortBy,
+} from "../components/ShelfToolbar";
 import {
   ApiError,
   deleteBook,
@@ -11,11 +17,35 @@ import {
   importBooks,
   listBooks,
   reparseBook,
+  updateBookGroup,
 } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_MAX_TIMES = 60;
+
+function readStoredSort(): ShelfSortBy {
+  if (typeof localStorage === "undefined") return "recent-read";
+  try {
+    const raw = localStorage.getItem(SHELF_SORT_KEY);
+    return isShelfSortBy(raw) ? raw : "recent-read";
+  } catch {
+    return "recent-read";
+  }
+}
+
+function compareBooks(
+  a: BookSummary,
+  b: BookSummary,
+  sortBy: ShelfSortBy,
+): number {
+  if (sortBy === "recent-read") {
+    // 无阅读记录（null）排最后
+    return (b.lastReadAt ?? -1) - (a.lastReadAt ?? -1);
+  }
+  if (sortBy === "recent-import") return b.createdAt - a.createdAt;
+  return a.title.localeCompare(b.title, "zh");
+}
 
 export default function LibraryPage() {
   const { user } = useAuth();
@@ -32,6 +62,15 @@ export default function LibraryPage() {
   const [statsDays, setStatsDays] = useState<
     DailyReadingStat[] | null | "error"
   >(null);
+  // 排序 / 分组筛选 / 管理模式
+  const [sortBy, setSortBy] = useState<ShelfSortBy>(readStoredSort);
+  const [activeGroup, setActiveGroup] = useState<string>("all");
+  const [manageMode, setManageMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [batchBusy, setBatchBusy] = useState(false);
+  const [groupPickerOpen, setGroupPickerOpen] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [pickerError, setPickerError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -210,11 +249,159 @@ export default function LibraryPage() {
     }
   }
 
+  // 分组 tabs 数据：由书列表派生（空分组自然消失）
+  const groups = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const b of books) {
+      if (b.group) counts.set(b.group, (counts.get(b.group) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => a.name.localeCompare(b.name, "zh"));
+  }, [books]);
+
+  // 当前分组消失（最后一本被移出/删除）时回到「全部」
+  useEffect(() => {
+    if (activeGroup !== "all" && !groups.some((g) => g.name === activeGroup)) {
+      setActiveGroup("all");
+    }
+  }, [groups, activeGroup]);
+
+  const visibleBooks = useMemo(() => {
+    const filtered =
+      activeGroup === "all"
+        ? books
+        : books.filter((b) => b.group === activeGroup);
+    return [...filtered].sort((a, b) => compareBooks(a, b, sortBy));
+  }, [books, activeGroup, sortBy]);
+
+  const selectedBooks = useMemo(
+    () => books.filter((b) => selected.has(b.id)),
+    [books, selected],
+  );
+  const allVisibleSelected =
+    visibleBooks.length > 0 && visibleBooks.every((b) => selected.has(b.id));
+
+  function handleSortChange(next: ShelfSortBy) {
+    setSortBy(next);
+    try {
+      localStorage.setItem(SHELF_SORT_KEY, next);
+    } catch {
+      // 隐私模式等写入失败时静默
+    }
+  }
+
+  function handleToggleManage() {
+    setManageMode((prev) => !prev);
+    setSelected(new Set());
+    setGroupPickerOpen(false);
+    setNewGroupName("");
+    setPickerError(null);
+  }
+
+  function handleToggleSelect(bookId: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(bookId)) next.delete(bookId);
+      else next.add(bookId);
+      return next;
+    });
+  }
+
+  function handleToggleSelectAll() {
+    if (allVisibleSelected) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(visibleBooks.map((b) => b.id)));
+    }
+  }
+
+  /** 批量删除：确认后串行调用单本 DELETE，失败项汇总提示 */
+  async function handleBatchDelete() {
+    const targets = selectedBooks;
+    if (!targets.length || batchBusy) return;
+    const ok = window.confirm(
+      `确定删除选中的 ${targets.length} 本书？此操作不可恢复。`,
+    );
+    if (!ok) return;
+    setError(null);
+    setImportStatus(null);
+    setBatchBusy(true);
+    const failed: string[] = [];
+    for (const { id, title } of targets) {
+      try {
+        await deleteBook(id);
+        setBooks((prev) => prev.filter((b) => b.id !== id));
+        setSelected((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      } catch {
+        failed.push(`《${title}》`);
+      }
+    }
+    setBatchBusy(false);
+    if (failed.length) {
+      setError(`删除失败：${failed.join("、")}`);
+    } else {
+      setImportStatus(`已删除 ${targets.length} 本`);
+    }
+  }
+
+  /** 批量移动分组：串行 PATCH，group 为 null 表示移出分组 */
+  async function handleBatchMove(group: string | null) {
+    const targets = selectedBooks;
+    if (!targets.length || batchBusy) return;
+    setError(null);
+    setImportStatus(null);
+    setPickerError(null);
+    setBatchBusy(true);
+    const failed: string[] = [];
+    for (const { id, title } of targets) {
+      try {
+        const summary = await updateBookGroup(id, group);
+        setBooks((prev) => prev.map((b) => (b.id === id ? summary : b)));
+      } catch {
+        failed.push(`《${title}》`);
+      }
+    }
+    setBatchBusy(false);
+    setGroupPickerOpen(false);
+    setNewGroupName("");
+    if (failed.length) {
+      setError(`移动失败：${failed.join("、")}`);
+    } else {
+      setSelected(new Set());
+      setImportStatus(
+        group
+          ? `已移动 ${targets.length} 本到「${group}」`
+          : `已将 ${targets.length} 本移出分组`,
+      );
+    }
+  }
+
+  /** 新建分组并移动：前端先校验分组名（trim 后 1–30 字符） */
+  function handleCreateGroupAndMove() {
+    const name = newGroupName.trim();
+    if (!name) {
+      setPickerError("请输入分组名");
+      return;
+    }
+    if (name.length > MAX_BOOK_GROUP_CHARS) {
+      setPickerError(`分组名不能超过 ${MAX_BOOK_GROUP_CHARS} 个字符`);
+      return;
+    }
+    void handleBatchMove(name);
+  }
+
   const empty = !loading && books.length === 0;
   const importDisabled = importing; // 不再用 loading 锁导入按钮，避免「一直点不了」
 
   return (
-    <main className="min-h-full p-6 md:p-10">
+    <main
+      className={`min-h-full p-6 md:p-10 ${manageMode ? "pb-28 md:pb-28" : ""}`}
+    >
       <header className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
         <h1 className="text-xl font-semibold tracking-wide text-[var(--accent)]">
           雨读
@@ -262,6 +449,19 @@ export default function LibraryPage() {
           </div>
         </div>
 
+        {!loading && books.length > 0 ? (
+          <ShelfToolbar
+            sortBy={sortBy}
+            onSortChange={handleSortChange}
+            groups={groups}
+            totalCount={books.length}
+            activeGroup={activeGroup}
+            onGroupChange={setActiveGroup}
+            manageMode={manageMode}
+            onToggleManage={handleToggleManage}
+          />
+        ) : null}
+
         {error ? (
           <p
             className="mb-4 rounded-lg border border-red-500/40 bg-red-950/20 px-3 py-2 text-sm text-red-400"
@@ -306,7 +506,7 @@ export default function LibraryPage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-            {books.map((book) => (
+            {visibleBooks.map((book) => (
               <BookCard
                 key={book.id}
                 book={book}
@@ -314,11 +514,126 @@ export default function LibraryPage() {
                 deleting={deletingId === book.id}
                 onReparse={handleReparse}
                 reparsing={reparsingId === book.id}
+                selectable={manageMode}
+                selected={selected.has(book.id)}
+                onToggleSelect={handleToggleSelect}
               />
             ))}
           </div>
         )}
       </section>
+
+      {/* 管理模式底部操作条 */}
+      {manageMode ? (
+        <div className="safe-bottom fixed inset-x-0 bottom-0 z-20 border-t border-[var(--border)] bg-[var(--bg-elevated)]">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-3 text-sm">
+            <span className="text-[var(--text)]">
+              已选 {selectedBooks.length} 本
+            </span>
+            <button
+              type="button"
+              onClick={handleToggleSelectAll}
+              disabled={batchBusy || visibleBooks.length === 0}
+              className="rounded px-2 py-1 text-[var(--text)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:opacity-50"
+            >
+              {allVisibleSelected ? "取消全选" : "全选"}
+            </button>
+
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setGroupPickerOpen((v) => !v);
+                  setPickerError(null);
+                }}
+                disabled={batchBusy || selectedBooks.length === 0}
+                aria-expanded={groupPickerOpen}
+                className="rounded px-2 py-1 text-[var(--text)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:opacity-50"
+              >
+                移动到分组
+              </button>
+
+              {groupPickerOpen ? (
+                <div className="absolute bottom-full left-0 mb-2 w-64 rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] p-3 shadow-lg shadow-black/30">
+                  <p className="mb-2 text-xs text-[var(--text-muted)]">
+                    移动 {selectedBooks.length} 本到：
+                  </p>
+                  <div className="mb-2 flex max-h-40 flex-col gap-1 overflow-y-auto">
+                    {groups.map((g) => (
+                      <button
+                        key={g.name}
+                        type="button"
+                        onClick={() => void handleBatchMove(g.name)}
+                        disabled={batchBusy}
+                        className="rounded px-2 py-1 text-left text-[var(--text)] hover:bg-[var(--bg)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:opacity-50"
+                      >
+                        {g.name}（{g.count}）
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => void handleBatchMove(null)}
+                      disabled={batchBusy}
+                      className="rounded px-2 py-1 text-left text-[var(--text-muted)] hover:bg-[var(--bg)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:opacity-50"
+                    >
+                      移出分组
+                    </button>
+                  </div>
+                  <div className="flex gap-2 border-t border-[var(--border)] pt-2">
+                    <input
+                      type="text"
+                      value={newGroupName}
+                      onChange={(e) => {
+                        setNewGroupName(e.target.value);
+                        setPickerError(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleCreateGroupAndMove();
+                      }}
+                      maxLength={MAX_BOOK_GROUP_CHARS}
+                      placeholder="新建分组…"
+                      aria-label="新建分组名称"
+                      className="min-w-0 flex-1 rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-1 text-[var(--text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCreateGroupAndMove}
+                      disabled={batchBusy}
+                      className="rounded border border-[var(--border)] px-2 py-1 text-[var(--text)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:opacity-50"
+                    >
+                      确定
+                    </button>
+                  </div>
+                  {pickerError ? (
+                    <p className="mt-2 text-xs text-red-400" role="alert">
+                      {pickerError}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => void handleBatchDelete()}
+              disabled={batchBusy || selectedBooks.length === 0}
+              className="rounded px-2 py-1 text-red-400 hover:bg-red-950/40 hover:text-red-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:opacity-50"
+            >
+              {batchBusy ? "处理中…" : "删除"}
+            </button>
+
+            <span className="flex-1" />
+            <button
+              type="button"
+              onClick={handleToggleManage}
+              disabled={batchBusy}
+              className="rounded px-2 py-1 text-[var(--text)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:opacity-50"
+            >
+              退出
+            </button>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

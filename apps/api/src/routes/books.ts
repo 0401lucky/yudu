@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { MAX_BOOK_GROUP_CHARS } from "@yudu/shared";
 import type {
   BookDetail,
   BookSummary,
@@ -27,10 +28,13 @@ type BookRow = {
   error_message: string | null;
   chapter_count: number;
   updated_at: number;
+  created_at: number;
+  group_name: string | null;
   // progress join（可选）
   chapter_index: number | null;
   char_offset: number | null;
   progress_char_count: number | null;
+  last_read_at: number | null;
 };
 
 type ChapterRow = {
@@ -130,20 +134,23 @@ function isUploadFile(v: unknown): v is File {
   );
 }
 
+/** 书架摘要查询公共部分（列表与 PATCH 分组后复用同一 join 口径） */
+const SUMMARY_SELECT = `SELECT
+   b.id, b.title, b.author, b.format, b.cover_r2_key, b.status,
+   b.error_message, b.chapter_count, b.updated_at, b.created_at, b.group_name,
+   p.chapter_index, p.char_offset, p.updated_at AS last_read_at,
+   ch.char_count AS progress_char_count
+ FROM books b
+ LEFT JOIN reading_progress p
+   ON p.book_id = b.id AND p.user_id = b.user_id
+ LEFT JOIN chapters ch
+   ON ch.book_id = b.id AND ch.idx = p.chapter_index`;
+
 /** GET /api/books — 书架列表 */
 booksRoutes.get("/", async (c) => {
   const userId = c.get("userId");
   const { results } = await c.env.DB.prepare(
-    `SELECT
-       b.id, b.title, b.author, b.format, b.cover_r2_key, b.status,
-       b.error_message, b.chapter_count, b.updated_at,
-       p.chapter_index, p.char_offset,
-       ch.char_count AS progress_char_count
-     FROM books b
-     LEFT JOIN reading_progress p
-       ON p.book_id = b.id AND p.user_id = b.user_id
-     LEFT JOIN chapters ch
-       ON ch.book_id = b.id AND ch.idx = p.chapter_index
+    `${SUMMARY_SELECT}
      WHERE b.user_id = ?
      ORDER BY b.updated_at DESC`,
   )
@@ -152,6 +159,84 @@ booksRoutes.get("/", async (c) => {
 
   const list: BookSummary[] = (results ?? []).map(rowToSummary);
   return c.json(list);
+});
+
+/**
+ * PATCH /api/books/:id — 更新书籍分组
+ * body: `{ group: string | null }`；trim 后 1–30 字符，null / 空串 = 移出分组。
+ */
+booksRoutes.patch("/:id", async (c) => {
+  const userId = c.get("userId");
+  const bookId = c.req.param("id");
+
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json(
+      { error: { code: "INVALID_BODY", message: "请求体不是合法 JSON" } },
+      400,
+    );
+  }
+
+  if (body == null || typeof body !== "object" || !("group" in body)) {
+    return c.json(
+      { error: { code: "INVALID_GROUP", message: "缺少 group 字段" } },
+      400,
+    );
+  }
+  const raw = (body as { group: unknown }).group;
+  let group: string | null;
+  if (raw == null) {
+    group = null;
+  } else if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (trimmed.length > MAX_BOOK_GROUP_CHARS) {
+      return c.json(
+        {
+          error: {
+            code: "INVALID_GROUP",
+            message: `分组名不能超过 ${MAX_BOOK_GROUP_CHARS} 个字符`,
+          },
+        },
+        400,
+      );
+    }
+    group = trimmed || null; // 空串 = 移出分组
+  } else {
+    return c.json(
+      { error: { code: "INVALID_GROUP", message: "group 必须是字符串或 null" } },
+      400,
+    );
+  }
+
+  const result = await c.env.DB.prepare(
+    `UPDATE books SET group_name = ? WHERE id = ? AND user_id = ?`,
+  )
+    .bind(group, bookId, userId)
+    .run();
+
+  if (!result.meta.changes) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "书籍不存在" } },
+      404,
+    );
+  }
+
+  const row = await c.env.DB.prepare(
+    `${SUMMARY_SELECT}
+     WHERE b.id = ? AND b.user_id = ?`,
+  )
+    .bind(bookId, userId)
+    .first<BookRow>();
+
+  if (!row) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "书籍不存在" } },
+      404,
+    );
+  }
+  return c.json(rowToSummary(row));
 });
 
 /** GET /api/books/:id — 元数据 + 目录 */
@@ -402,6 +487,9 @@ function rowToSummary(row: BookRow): BookSummary {
       row.progress_char_count,
     ),
     updatedAt: row.updated_at,
+    createdAt: row.created_at,
+    lastReadAt: row.last_read_at,
+    group: row.group_name,
   };
 }
 

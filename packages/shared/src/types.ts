@@ -20,6 +20,12 @@ export interface BookSummary {
   chapterCount: number;
   progressPercent: number | null;
   updatedAt: number;
+  /** 导入时间（毫秒时间戳），书架「最近导入」排序用 */
+  createdAt: number;
+  /** 最近阅读时间（进度 updated_at）；无阅读记录为 null */
+  lastReadAt: number | null;
+  /** 所属分组名；未分组为 null */
+  group: string | null;
 }
 
 export interface ChapterMeta {
