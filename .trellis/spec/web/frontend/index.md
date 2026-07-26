@@ -43,6 +43,8 @@
 | `/library` | 书架 | 需登录 |
 | `/settings` | 设置 | 需登录 |
 | `/read/:bookId` | 阅读器 | 需登录 |
+| `/notes` | 笔记汇总（NotesPage） | 需登录 |
+| `/report` | 年度阅读报告（ReportPage） | 需登录 |
 
 鉴权壳：`App.tsx` 的 `RequireAuth`（`useAuth` + `<Navigate to="/login">`）。
 
