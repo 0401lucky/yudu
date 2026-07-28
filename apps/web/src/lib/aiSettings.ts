@@ -32,8 +32,11 @@ export function loadAiSettings(): AiSettings {
 }
 
 export function saveAiSettings(settings: AiSettings): void {
+  // 去尾斜杠与末尾 /v1，与 aiClient.normalizeAiBaseUrl 口径一致
+  let baseUrl = settings.baseUrl.trim().replace(/\/+$/, "");
+  baseUrl = baseUrl.replace(/\/v1$/i, "");
   const next: AiSettings = {
-    baseUrl: settings.baseUrl.trim().replace(/\/$/, ""),
+    baseUrl,
     apiKey: settings.apiKey.trim(),
     model: settings.model.trim(),
   };

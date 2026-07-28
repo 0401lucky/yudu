@@ -15,6 +15,110 @@ export interface ChatMessage {
 }
 
 /**
+ * 规范化 Base URL：去尾斜杠，并去掉末尾多余的 `/v1`
+ *（避免用户填了 …/v1 后再拼 /v1/models 变成双 v1）。
+ */
+export function normalizeAiBaseUrl(baseUrl: string): string {
+  return baseUrl
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\/v1$/i, "");
+}
+
+function authHeaders(apiKey: string): HeadersInit {
+  return {
+    Authorization: `Bearer ${apiKey.trim()}`,
+  };
+}
+
+/**
+ * 从 OpenAI 兼容中转拉取模型 id 列表（GET /v1/models）。
+ * 浏览器直连，需 CORS。
+ */
+export async function listAiModels(options: {
+  baseUrl: string;
+  apiKey: string;
+  signal?: AbortSignal;
+}): Promise<string[]> {
+  const base = normalizeAiBaseUrl(options.baseUrl);
+  const apiKey = options.apiKey.trim();
+  if (!base || !apiKey) {
+    throw new AiClientError("请先填写 API 地址与密钥");
+  }
+
+  const url = `${base}/v1/models`;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "GET",
+      signal: options.signal,
+      headers: authHeaders(apiKey),
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new AiClientError(
+      `无法连接 new-api（${msg}）。请确认地址正确，且中转已允许本站 CORS。`,
+    );
+  }
+
+  if (!res.ok) {
+    let detail = res.statusText;
+    try {
+      const t = await res.text();
+      if (t) detail = t.slice(0, 300);
+    } catch {
+      // ignore
+    }
+    throw new AiClientError(`拉取模型列表失败：${detail}`, res.status);
+  }
+
+  let data: unknown;
+  try {
+    data = await res.json();
+  } catch {
+    throw new AiClientError("模型列表响应不是合法 JSON");
+  }
+
+  return parseModelsResponse(data);
+}
+
+/** 解析 OpenAI / new-api 的 models 响应为 id 列表（已排序、去重） */
+export function parseModelsResponse(data: unknown): string[] {
+  const ids = new Set<string>();
+
+  const pushId = (raw: unknown) => {
+    if (typeof raw === "string" && raw.trim()) ids.add(raw.trim());
+  };
+
+  if (Array.isArray(data)) {
+    for (const item of data) {
+      if (typeof item === "string") pushId(item);
+      else if (item && typeof item === "object" && "id" in item) {
+        pushId((item as { id: unknown }).id);
+      }
+    }
+  } else if (data && typeof data === "object") {
+    const root = data as { data?: unknown; models?: unknown };
+    const list = Array.isArray(root.data)
+      ? root.data
+      : Array.isArray(root.models)
+        ? root.models
+        : null;
+    if (list) {
+      for (const item of list) {
+        if (typeof item === "string") pushId(item);
+        else if (item && typeof item === "object" && "id" in item) {
+          pushId((item as { id: unknown }).id);
+        }
+      }
+    }
+  }
+
+  return [...ids].sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" }));
+}
+
+/**
  * 浏览器直连 OpenAI 兼容 Chat Completions（new-api），流式回调 onDelta。
  * 需中转配置 CORS 允许当前 Origin。
  */
@@ -26,7 +130,7 @@ export async function streamChatCompletion(options: {
   onDelta: (text: string) => void;
 }): Promise<string> {
   const { settings, messages, temperature = 0.85, signal, onDelta } = options;
-  const base = settings.baseUrl.replace(/\/$/, "");
+  const base = normalizeAiBaseUrl(settings.baseUrl);
   if (!base || !settings.apiKey || !settings.model) {
     throw new AiClientError("请先在设置中填写 API 地址、密钥与模型");
   }
@@ -39,7 +143,7 @@ export async function streamChatCompletion(options: {
       signal,
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${settings.apiKey}`,
+        ...authHeaders(settings.apiKey),
       },
       body: JSON.stringify({
         model: settings.model,
