@@ -4,9 +4,11 @@
 
 ### Schema 来源
 
-迁移目录：`apps/api/migrations/`（`0001_init` → `0002_bookmarks` → `0003_reading_stats` → `0004_highlights` → `0005_highlight_notes` → `0006_book_groups`,按序追加）。
+迁移目录：`apps/api/migrations/`（`0001_init` → … → `0006_book_groups` → `0007_studio_books`，按序追加）。
 
 表：`users`、`sessions`、`books`、`chapters`、`reading_progress`、`user_preferences`、`bookmarks`、`reading_stats_daily`、`highlights`。
+
+`books` 创作台扩展列（0007）：`source`（`import`|`studio`）、`on_shelf`、`break_limit`、`studio_assets`（JSON 文本）。书架列表仅返回 `on_shelf=1`；导入书默认上架。
 
 ### 约定
 

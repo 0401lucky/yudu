@@ -41,7 +41,9 @@
 | `/` | LandingPage | 公开 |
 | `/login` `/register` | 登录注册 | 公开 |
 | `/library` | 书架 | 需登录 |
-| `/settings` | 设置 | 需登录 |
+| `/studio` | AI 创作台列表 | 需登录 |
+| `/studio/:bookId` | 创作工作流 | 需登录 |
+| `/settings` | 设置（含本机 new-api 配置） | 需登录 |
 | `/read/:bookId` | 阅读器 | 需登录 |
 | `/notes` | 笔记汇总（NotesPage） | 需登录 |
 | `/report` | 年度阅读报告（ReportPage） | 需登录 |

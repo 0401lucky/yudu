@@ -12,6 +12,8 @@ import type {
   NotesBookGroup,
   ReadingProgress,
   ReadingStatsResponse,
+  StudioAssets,
+  StudioBookDetail,
   UserPreferences,
   UserPublic,
 } from "@yudu/shared";
@@ -360,4 +362,88 @@ export function getReadingStats(days?: number): Promise<ReadingStatsResponse> {
 export function getAnnualReport(year?: number): Promise<AnnualReportResponse> {
   const query = year != null ? `?year=${year}` : "";
   return api<AnnualReportResponse>(`/api/stats/annual${query}`);
+}
+
+/* —— AI 创作台 —— */
+
+export function listStudioBooks(): Promise<BookSummary[]> {
+  return api<BookSummary[]>("/api/studio/books");
+}
+
+export function createStudioBook(body?: {
+  title?: string;
+  breakLimit?: boolean;
+}): Promise<BookSummary> {
+  return api<BookSummary>("/api/studio/books", {
+    method: "POST",
+    body: JSON.stringify(body ?? {}),
+  });
+}
+
+export function getStudioBook(bookId: string): Promise<StudioBookDetail> {
+  return api<StudioBookDetail>(
+    `/api/studio/books/${encodeURIComponent(bookId)}`,
+  );
+}
+
+export function patchStudioBook(
+  bookId: string,
+  body: { title?: string; breakLimit?: boolean; author?: string | null },
+): Promise<BookSummary> {
+  return api<BookSummary>(`/api/studio/books/${encodeURIComponent(bookId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export function putStudioAssets(
+  bookId: string,
+  assets: StudioAssets,
+): Promise<StudioAssets> {
+  return api<StudioAssets>(
+    `/api/studio/books/${encodeURIComponent(bookId)}/assets`,
+    {
+      method: "PUT",
+      body: JSON.stringify(assets),
+    },
+  );
+}
+
+export function setStudioShelf(
+  bookId: string,
+  onShelf: boolean,
+): Promise<BookSummary> {
+  return api<BookSummary>(
+    `/api/studio/books/${encodeURIComponent(bookId)}/shelf`,
+    {
+      method: "POST",
+      body: JSON.stringify({ onShelf }),
+    },
+  );
+}
+
+/** 创作台写/更新指定章 */
+export function putStudioChapter(
+  bookId: string,
+  index: number,
+  body: { title?: string; text?: string },
+): Promise<{ index: number; title: string; charCount: number }> {
+  return api(
+    `/api/books/${encodeURIComponent(bookId)}/chapters/${index}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+/** 创作台追加一章 */
+export function appendStudioChapter(
+  bookId: string,
+  body: { title?: string; text?: string },
+): Promise<{ index: number; title: string; charCount: number }> {
+  return api(`/api/books/${encodeURIComponent(bookId)}/chapters`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }

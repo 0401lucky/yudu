@@ -17,6 +17,9 @@ type MockBook = {
   created_at: number;
   updated_at: number;
   group_name: string | null;
+  source: string;
+  on_shelf: number;
+  break_limit: number;
 };
 
 type MockProgress = {
@@ -55,6 +58,9 @@ function createMockDb() {
         created_at: NOW - 2000,
         updated_at: NOW - 1000,
         group_name: null,
+        source: "import",
+        on_shelf: 1,
+        break_limit: 0,
       },
     ],
     [
@@ -72,6 +78,9 @@ function createMockDb() {
         created_at: NOW - 5000,
         updated_at: NOW - 4000,
         group_name: "武侠",
+        source: "import",
+        on_shelf: 1,
+        break_limit: 0,
       },
     ],
     [
@@ -89,6 +98,9 @@ function createMockDb() {
         created_at: NOW,
         updated_at: NOW,
         group_name: null,
+        source: "import",
+        on_shelf: 1,
+        break_limit: 0,
       },
     ],
   ]);
@@ -115,6 +127,9 @@ function createMockDb() {
       updated_at: b.updated_at,
       created_at: b.created_at,
       group_name: b.group_name,
+      source: b.source,
+      on_shelf: b.on_shelf,
+      break_limit: b.break_limit,
       chapter_index: p?.chapter_index ?? null,
       char_offset: p?.char_offset ?? null,
       last_read_at: p?.updated_at ?? null,
@@ -157,8 +172,10 @@ function createMockDb() {
           async all<T>() {
             if (sql.includes("FROM books b") && sql.includes("b.user_id = ?")) {
               const [userId] = args as [string];
+              const shelfOnly = sql.includes("on_shelf");
               const rows = [...books.values()]
                 .filter((b) => b.user_id === userId)
+                .filter((b) => (shelfOnly ? b.on_shelf === 1 : true))
                 .sort((a, b) => b.updated_at - a.updated_at)
                 .map(summaryRow);
               return { results: rows as T[] };

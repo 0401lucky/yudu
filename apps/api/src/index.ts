@@ -9,6 +9,7 @@ import { preferencesRoutes } from "./routes/preferences";
 import { progressRoutes } from "./routes/progress";
 import { searchRoutes } from "./routes/search";
 import { statsRoutes } from "./routes/stats";
+import { studioRoutes } from "./routes/studio";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -36,6 +37,8 @@ app.get("/api/health", (c) => c.json({ ok: true, name: "雨读" }));
 app.route("/api/auth", authRoutes);
 app.route("/api", meRoutes);
 app.route("/api/books", booksRoutes);
+// AI 创作台
+app.route("/api/studio", studioRoutes);
 // 书签挂在 /api/books/:id/bookmarks；booksRoutes 未匹配的子路径落到这里
 app.route("/api/books", bookmarksRoutes);
 // 文本高亮挂在 /api/books/:id/highlights，同前缀挂载

@@ -1,7 +1,8 @@
-import type { BookFormat, HighlightColor } from "./constants";
+import type { BookFormat, BookSource, HighlightColor } from "./constants";
 
 export type BookStatus = "processing" | "ready" | "failed";
 export type ThemeId = "night" | "paper";
+export type { BookSource };
 
 export interface UserPublic {
   id: string;
@@ -26,6 +27,12 @@ export interface BookSummary {
   lastReadAt: number | null;
   /** 所属分组名；未分组为 null */
   group: string | null;
+  /** 来源：导入或创作台；旧数据缺省按 import */
+  source: BookSource;
+  /** 是否出现在书架；创作台默认 false，导入默认 true */
+  onShelf: boolean;
+  /** 创作台破限（18+）模式；导入书恒为 false */
+  breakLimit: boolean;
 }
 
 export interface ChapterMeta {
@@ -41,6 +48,58 @@ export interface BookDetail {
   format: BookFormat;
   status: BookStatus;
   chapters: ChapterMeta[];
+  source: BookSource;
+  onShelf: boolean;
+  breakLimit: boolean;
+}
+
+/** 创作台立项补充信息 */
+export interface StudioPremise {
+  genre?: string;
+  tone?: string;
+  targetLength?: string;
+  notes?: string;
+}
+
+/** 创作台人设卡片 */
+export interface StudioCharacter {
+  id: string;
+  name: string;
+  role: string;
+  description: string;
+}
+
+/** 分章细纲一条 */
+export interface StudioChapterOutline {
+  index: number;
+  title: string;
+  summary: string;
+}
+
+/** 创作台设定资产（人设/大纲/细纲），跟书上云 */
+export interface StudioAssets {
+  premise: StudioPremise;
+  characters: StudioCharacter[];
+  outline: string;
+  chapterOutlines: StudioChapterOutline[];
+  updatedAt: number;
+}
+
+/** 创作台作品详情 = 目录 + 设定 */
+export interface StudioBookDetail extends BookDetail {
+  source: "studio";
+  assets: StudioAssets;
+}
+
+/** 空设定模板 */
+export function emptyStudioAssets(now = Date.now()): StudioAssets {
+  return {
+    premise: {},
+    characters: [],
+    outline: "",
+    chapterOutlines: [],
+    updatedAt: now,
+  };
 }
 
 export interface ChapterContent {

@@ -8,6 +8,8 @@ import ReaderPage from "./pages/ReaderPage";
 import RegisterPage from "./pages/RegisterPage";
 import ReportPage from "./pages/ReportPage";
 import SettingsPage from "./pages/SettingsPage";
+import StudioListPage from "./pages/StudioListPage";
+import StudioWorkPage from "./pages/StudioWorkPage";
 
 function RequireAuth() {
   const { user, loading } = useAuth();
@@ -35,6 +37,8 @@ export default function App() {
       <Route path="/register" element={<RegisterPage />} />
       <Route element={<RequireAuth />}>
         <Route path="/library" element={<LibraryPage />} />
+        <Route path="/studio" element={<StudioListPage />} />
+        <Route path="/studio/:bookId" element={<StudioWorkPage />} />
         <Route path="/notes" element={<NotesPage />} />
         <Route path="/report" element={<ReportPage />} />
         <Route path="/settings" element={<SettingsPage />} />

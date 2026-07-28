@@ -18,6 +18,7 @@
 | 分享 | 书摘卡片（雨夜/纸页双模板 Canvas 图片，下载/系统分享） |
 | 听书 | Web SpeechSynthesis：逐段朗读、跨章续播、语速音色、正文跟随 |
 | 书架 | 排序（最近阅读/导入/书名）、单层分组、多选批量删除与移动 |
+| 创作台 | AI 小说工作流（立项/人设/大纲/细纲/正文）；自配 new-api；可选上架；破限 18+（自选模型） |
 | 搜索 | **书内全文搜索**，摘录高亮与跳转 |
 | 统计 | **每日阅读时长 + 年度热力图**、连续天数、`/report` 年度阅读报告 |
 | 同步 | 阅读进度、偏好云端；Markdown GFM 渲染 |
@@ -53,8 +54,8 @@ cd apps/api
 copy .dev.vars.example .dev.vars   # Windows
 # 或: cp .dev.vars.example .dev.vars
 
-# 应用 D1 本地迁移
-pnpm exec wrangler d1 migrations apply yudu --local
+# 应用 D1 本地迁移（库名以 wrangler.toml 为准）
+pnpm exec wrangler d1 migrations apply novel-reading-platform-db --local
 ```
 
 `.dev.vars` 至少包含：

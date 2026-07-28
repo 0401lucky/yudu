@@ -217,6 +217,9 @@ async function createPdfBook(
       createdAt: now,
       lastReadAt: null,
       group: null,
+      source: "import",
+      onShelf: true,
+      breakLimit: false,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -246,6 +249,9 @@ async function createPdfBook(
       createdAt: now,
       lastReadAt: null,
       group: null,
+      source: "import",
+      onShelf: true,
+      breakLimit: false,
     };
   }
 }
@@ -510,6 +516,9 @@ async function appendChaptersToBook(
       // 追加后前端会整表刷新，此处不再单查进度
       lastReadAt: null,
       group: book.group_name,
+      source: "import",
+      onShelf: true,
+      breakLimit: false,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -530,6 +539,9 @@ async function appendChaptersToBook(
       createdAt: book.created_at,
       lastReadAt: null,
       group: book.group_name,
+      source: "import",
+      onShelf: true,
+      breakLimit: false,
     };
   }
 }
@@ -682,6 +694,9 @@ async function createBookFromGroup(
       createdAt: now,
       lastReadAt: null,
       group: null,
+      source: "import",
+      onShelf: true,
+      breakLimit: false,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -711,6 +726,9 @@ async function createBookFromGroup(
       createdAt: now,
       lastReadAt: null,
       group: null,
+      source: "import",
+      onShelf: true,
+      breakLimit: false,
     };
   }
 }
@@ -903,6 +921,9 @@ export async function reparseBook(
       createdAt: book.created_at,
       lastReadAt,
       group: book.group_name,
+      source: "import",
+      onShelf: true,
+      breakLimit: false,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

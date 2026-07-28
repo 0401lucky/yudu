@@ -23,3 +23,18 @@ export const MAX_HIGHLIGHT_NOTE_CHARS = 500;
 export const MAX_BOOK_GROUP_CHARS = 30;
 /** 年度阅读报告可查询的最早年份（前后端共用校验口径） */
 export const MIN_REPORT_YEAR = 2020;
+
+/** 书籍来源：导入文件 | AI 创作台 */
+export const BOOK_SOURCES = ["import", "studio"] as const;
+export type BookSource = (typeof BOOK_SOURCES)[number];
+
+/** 创作台书名最大长度 */
+export const MAX_STUDIO_TITLE_CHARS = 80;
+/** 创作台总大纲最大字符 */
+export const MAX_STUDIO_OUTLINE_CHARS = 50_000;
+/** 单章正文最大字符（创作台写入） */
+export const MAX_STUDIO_CHAPTER_CHARS = 200_000;
+/** 人设卡片数量上限 */
+export const MAX_STUDIO_CHARACTERS = 40;
+/** 分章细纲条数上限 */
+export const MAX_STUDIO_CHAPTER_OUTLINES = 500;

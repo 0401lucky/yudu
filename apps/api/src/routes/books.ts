@@ -16,6 +16,14 @@ import {
   ReparseError,
   type UploadFile,
 } from "../services/importBook";
+import {
+  appendStudioChapter,
+  rowToBookSummary,
+  StudioForbiddenError,
+  StudioNotFoundError,
+  StudioValidationError,
+  upsertStudioChapter,
+} from "../services/studioBook";
 import { getObject, getText } from "../services/storage";
 
 type BookRow = {
@@ -30,6 +38,9 @@ type BookRow = {
   updated_at: number;
   created_at: number;
   group_name: string | null;
+  source: string | null;
+  on_shelf: number | null;
+  break_limit: number | null;
   // progress join（可选）
   chapter_index: number | null;
   char_offset: number | null;
@@ -138,6 +149,7 @@ function isUploadFile(v: unknown): v is File {
 const SUMMARY_SELECT = `SELECT
    b.id, b.title, b.author, b.format, b.cover_r2_key, b.status,
    b.error_message, b.chapter_count, b.updated_at, b.created_at, b.group_name,
+   b.source, b.on_shelf, b.break_limit,
    p.chapter_index, p.char_offset, p.updated_at AS last_read_at,
    ch.char_count AS progress_char_count
  FROM books b
@@ -146,12 +158,13 @@ const SUMMARY_SELECT = `SELECT
  LEFT JOIN chapters ch
    ON ch.book_id = b.id AND ch.idx = p.chapter_index`;
 
-/** GET /api/books — 书架列表 */
+/** GET /api/books — 书架列表（仅 on_shelf；导入书缺省视为上架） */
 booksRoutes.get("/", async (c) => {
   const userId = c.get("userId");
   const { results } = await c.env.DB.prepare(
     `${SUMMARY_SELECT}
      WHERE b.user_id = ?
+       AND COALESCE(b.on_shelf, 1) = 1
      ORDER BY b.updated_at DESC`,
   )
     .bind(userId)
@@ -245,7 +258,7 @@ booksRoutes.get("/:id", async (c) => {
   const bookId = c.req.param("id");
 
   const book = await c.env.DB.prepare(
-    `SELECT id, title, author, format, status, chapter_count
+    `SELECT id, title, author, format, status, chapter_count, source, on_shelf, break_limit
      FROM books WHERE id = ? AND user_id = ?`,
   )
     .bind(bookId, userId)
@@ -256,6 +269,9 @@ booksRoutes.get("/:id", async (c) => {
       format: string;
       status: string;
       chapter_count: number;
+      source: string | null;
+      on_shelf: number | null;
+      break_limit: number | null;
     }>();
 
   if (!book) {
@@ -278,6 +294,7 @@ booksRoutes.get("/:id", async (c) => {
     charCount: ch.char_count,
   }));
 
+  const source = book.source === "studio" ? "studio" : "import";
   const detail: BookDetail = {
     id: book.id,
     title: book.title,
@@ -285,6 +302,12 @@ booksRoutes.get("/:id", async (c) => {
     format: book.format as BookDetail["format"],
     status: book.status as BookDetail["status"],
     chapters,
+    source,
+    onShelf:
+      source === "import"
+        ? book.on_shelf == null || book.on_shelf !== 0
+        : book.on_shelf === 1,
+    breakLimit: book.break_limit === 1,
   };
   return c.json(detail);
 });
@@ -319,6 +342,96 @@ booksRoutes.post("/:id/reparse", async (c) => {
         { error: { code: err.code, message: err.message } },
         err.status,
       );
+    }
+    throw err;
+  }
+});
+
+/**
+ * PUT /api/books/:id/chapters/:idx — 创作台写/更新章（仅 source=studio）
+ * body: { title?: string, text?: string }
+ */
+booksRoutes.put("/:id/chapters/:idx", async (c) => {
+  const userId = c.get("userId");
+  const bookId = c.req.param("id");
+  const idx = Number.parseInt(c.req.param("idx"), 10);
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json(
+      { error: { code: "INVALID_BODY", message: "请求体不是合法 JSON" } },
+      400,
+    );
+  }
+  const title =
+    body && typeof body === "object" && typeof (body as { title?: unknown }).title === "string"
+      ? (body as { title: string }).title
+      : undefined;
+  const text =
+    body && typeof body === "object" && typeof (body as { text?: unknown }).text === "string"
+      ? (body as { text: string }).text
+      : undefined;
+  try {
+    const meta = await upsertStudioChapter(c.env, userId, bookId, idx, {
+      title,
+      text,
+    });
+    return c.json(meta);
+  } catch (err) {
+    if (err instanceof StudioValidationError) {
+      return c.json({ error: { code: err.code, message: err.message } }, 400);
+    }
+    if (err instanceof StudioNotFoundError) {
+      return c.json({ error: { code: "NOT_FOUND", message: err.message } }, 404);
+    }
+    if (err instanceof StudioForbiddenError) {
+      return c.json({ error: { code: err.code, message: err.message } }, 403);
+    }
+    throw err;
+  }
+});
+
+/**
+ * POST /api/books/:id/chapters — 创作台追加一章
+ * body: { title?: string, text?: string }
+ */
+booksRoutes.post("/:id/chapters", async (c) => {
+  const userId = c.get("userId");
+  const bookId = c.req.param("id");
+  let body: unknown = {};
+  try {
+    const text = await c.req.text();
+    if (text) body = JSON.parse(text) as unknown;
+  } catch {
+    return c.json(
+      { error: { code: "INVALID_BODY", message: "请求体不是合法 JSON" } },
+      400,
+    );
+  }
+  const title =
+    body && typeof body === "object" && typeof (body as { title?: unknown }).title === "string"
+      ? (body as { title: string }).title
+      : undefined;
+  const chapterText =
+    body && typeof body === "object" && typeof (body as { text?: unknown }).text === "string"
+      ? (body as { text: string }).text
+      : undefined;
+  try {
+    const meta = await appendStudioChapter(c.env, userId, bookId, {
+      title,
+      text: chapterText,
+    });
+    return c.json(meta, 201);
+  } catch (err) {
+    if (err instanceof StudioValidationError) {
+      return c.json({ error: { code: err.code, message: err.message } }, 400);
+    }
+    if (err instanceof StudioNotFoundError) {
+      return c.json({ error: { code: "NOT_FOUND", message: err.message } }, 404);
+    }
+    if (err instanceof StudioForbiddenError) {
+      return c.json({ error: { code: err.code, message: err.message } }, 403);
     }
     throw err;
   }
@@ -471,26 +584,7 @@ booksRoutes.get("/:id/source", async (c) => {
 });
 
 function rowToSummary(row: BookRow): BookSummary {
-  return {
-    id: row.id,
-    title: row.title,
-    author: row.author,
-    format: row.format as BookSummary["format"],
-    coverUrl: row.cover_r2_key ? `/api/books/${row.id}/cover` : null,
-    status: row.status as BookSummary["status"],
-    errorMessage: row.error_message,
-    chapterCount: row.chapter_count,
-    progressPercent: calcProgressPercent(
-      row.chapter_count,
-      row.chapter_index,
-      row.char_offset,
-      row.progress_char_count,
-    ),
-    updatedAt: row.updated_at,
-    createdAt: row.created_at,
-    lastReadAt: row.last_read_at,
-    group: row.group_name,
-  };
+  return rowToBookSummary(row, calcProgressPercent);
 }
 
 /**

@@ -155,6 +155,12 @@ export default function BookCard({
           </span>
         ) : null}
 
+        {book.source === "studio" && !selectable ? (
+          <span className="absolute bottom-2 left-2 rounded bg-[color:color-mix(in_srgb,var(--bg)_80%,transparent)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--accent)]">
+            {book.breakLimit ? "创作·破限" : "创作"}
+          </span>
+        ) : null}
+
         {book.status === "processing" ? (
           <div className="absolute inset-0 animate-pulse bg-[color:color-mix(in_srgb,var(--accent)_5%,transparent)]" />
         ) : null}
@@ -189,6 +195,20 @@ export default function BookCard({
               selectable ? "hidden" : ""
             }`}
           >
+            {book.source === "studio" ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  navigate(`/studio/${book.id}`);
+                }}
+                className="rounded px-1.5 py-1 text-xs text-[var(--text-muted)] opacity-80 hover:bg-[var(--bg)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                aria-label={`继续创作《${book.title}》`}
+              >
+                创作
+              </button>
+            ) : null}
             {canReparse ? (
               <button
                 type="button"

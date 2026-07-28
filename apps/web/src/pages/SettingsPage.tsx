@@ -3,6 +3,11 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useThemePrefs } from "../components/ThemeProvider";
 import { ApiError } from "../lib/api";
+import {
+  loadAiSettings,
+  saveAiSettings,
+  type AiSettings,
+} from "../lib/aiSettings";
 import { useAuth } from "../lib/auth";
 
 export default function SettingsPage() {
@@ -12,6 +17,8 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [ai, setAi] = useState<AiSettings>(() => loadAiSettings());
+  const [aiSaved, setAiSaved] = useState(false);
 
   async function onLogout() {
     setError(null);
@@ -134,6 +141,74 @@ export default function SettingsPage() {
               </label>
             </>
           )}
+        </div>
+
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5 space-y-4">
+          <h2 className="text-sm text-[var(--text-muted)]">AI 创作（new-api）</h2>
+          <p className="text-xs text-[var(--text-muted)]">
+            仅保存在本浏览器，不会上传到雨读服务器。请使用 OpenAI 兼容中转，并配置
+            CORS 允许本站来源。密钥请自行保管。
+          </p>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-[var(--text-muted)]">API Base URL</span>
+            <input
+              value={ai.baseUrl}
+              onChange={(e) => {
+                setAiSaved(false);
+                setAi((s) => ({ ...s, baseUrl: e.target.value }));
+              }}
+              placeholder="https://your-new-api.example.com"
+              className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[var(--text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              autoComplete="off"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-[var(--text-muted)]">API Key</span>
+            <input
+              type="password"
+              value={ai.apiKey}
+              onChange={(e) => {
+                setAiSaved(false);
+                setAi((s) => ({ ...s, apiKey: e.target.value }));
+              }}
+              placeholder="sk-…"
+              className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[var(--text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              autoComplete="off"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-[var(--text-muted)]">模型名</span>
+            <input
+              value={ai.model}
+              onChange={(e) => {
+                setAiSaved(false);
+                setAi((s) => ({ ...s, model: e.target.value }));
+              }}
+              placeholder="例如 gpt-4o 或你的破限模型 id"
+              className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[var(--text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              autoComplete="off"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => {
+              saveAiSettings(ai);
+              setAi(loadAiSettings());
+              setAiSaved(true);
+            }}
+            className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm text-[var(--bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          >
+            保存到本机
+          </button>
+          {aiSaved ? (
+            <p className="text-xs text-emerald-400">已保存到 localStorage</p>
+          ) : null}
+          <Link
+            to="/studio"
+            className="inline-block text-sm text-[var(--accent)] hover:underline"
+          >
+            打开创作台 →
+          </Link>
         </div>
 
         {error ? (

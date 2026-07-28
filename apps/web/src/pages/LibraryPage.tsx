@@ -419,6 +419,15 @@ export default function LibraryPage() {
             }}
           />
           <Link
+            to="/studio"
+            title="创作台"
+            aria-label="创作台"
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-3 text-sm text-[var(--text)] hover:border-[color:color-mix(in_srgb,var(--accent)_60%,transparent)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          >
+            <PenIcon />
+            <span className="hidden sm:inline">创作台</span>
+          </Link>
+          <Link
             to="/notes"
             title="笔记"
             aria-label="笔记"
@@ -651,6 +660,25 @@ function errMessage(err: unknown, fallback: string): string {
 }
 
 /** 图标风格对齐 ReaderChrome：18px 描边线稿，颜色随 currentColor */
+function PenIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  );
+}
+
 function NotebookIcon() {
   return (
     <svg
