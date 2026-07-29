@@ -434,6 +434,18 @@ export default function StudioWorkPage() {
     1,
   );
 
+  /** 与后端 char_count 一致：按 Unicode 码点计「字」 */
+  const chapterCharCount = [...chapterText].length;
+  const bookCharTotal = (() => {
+    const byIdx = new Map(
+      detail.chapters.map((c) => [c.index, c.charCount] as const),
+    );
+    byIdx.set(activeChapter, chapterCharCount);
+    let sum = 0;
+    for (const n of byIdx.values()) sum += n;
+    return sum;
+  })();
+
   return (
     <main className="min-h-full p-4 md:p-8">
       <header className="mx-auto flex max-w-5xl flex-col gap-3 border-b border-[var(--border)] pb-4">
@@ -780,6 +792,33 @@ export default function StudioWorkPage() {
               </button>
             </aside>
             <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm">
+                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                  <p>
+                    <span className="text-[var(--text-muted)]">本章</span>
+                    <span
+                      className="ml-2 font-mono text-base font-semibold tabular-nums text-[var(--accent)]"
+                      aria-live="polite"
+                    >
+                      {chapterCharCount.toLocaleString("zh-CN")}
+                    </span>
+                    <span className="ml-1 text-[var(--text-muted)]">字</span>
+                    {generating ? (
+                      <span className="ml-2 text-xs text-amber-400">生成中</span>
+                    ) : null}
+                  </p>
+                  <p>
+                    <span className="text-[var(--text-muted)]">全书（含本章）</span>
+                    <span className="ml-2 font-mono tabular-nums text-[var(--text)]">
+                      {bookCharTotal.toLocaleString("zh-CN")}
+                    </span>
+                    <span className="ml-1 text-[var(--text-muted)]">字</span>
+                  </p>
+                </div>
+                <p className="text-xs text-[var(--text-muted)]">
+                  按字符计（与入库一致）
+                </p>
+              </div>
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
@@ -787,7 +826,9 @@ export default function StudioWorkPage() {
                   onClick={() => void genChapterBody()}
                   className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm text-[var(--bg)] disabled:opacity-60"
                 >
-                  {generating ? "生成中…" : "AI 生成/重生成本章"}
+                  {generating
+                    ? `生成中… ${chapterCharCount.toLocaleString("zh-CN")} 字`
+                    : "AI 生成/重生成本章"}
                 </button>
                 <button
                   type="button"
