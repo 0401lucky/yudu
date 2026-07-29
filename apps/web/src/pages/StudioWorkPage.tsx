@@ -62,6 +62,7 @@ export default function StudioWorkPage() {
   const [tone, setTone] = useState("");
   const [targetLength, setTargetLength] = useState("");
   const [notes, setNotes] = useState("");
+  const [autoChapterCount, setAutoChapterCount] = useState(true);
 
   // 正文编辑
   const [activeChapter, setActiveChapter] = useState(0);
@@ -283,6 +284,7 @@ export default function StudioWorkPage() {
           title || detail.title,
           assets,
           10,
+          autoChapterCount,
         ),
       async (text) => {
         const parsed = parseChapterOutlinesFromAi(text);
@@ -465,6 +467,17 @@ export default function StudioWorkPage() {
               {title || detail.title}
             </h1>
           </div>
+          <StudioModelPicker
+            compact
+            onModelChange={(model) => {
+              if (detail && detail.id) {
+                // Save to assets for per-book model
+                setAssets((prev) =>
+                  prev ? { ...prev, model } : prev,
+                );
+              }
+            }}
+          />
           <div className="flex flex-wrap gap-2 text-sm">
             {detail.onShelf ? (
               <Link
@@ -566,6 +579,22 @@ export default function StudioWorkPage() {
                 className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[var(--text)]"
               />
             </label>
+
+            <label className="flex items-start gap-3 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={autoChapterCount}
+                onChange={(e) => setAutoChapterCount(e.target.checked)}
+              />
+              <span>
+                <span className="text-[var(--text)]">让 AI 自行决定分章数</span>
+                <span className="mt-1 block text-[var(--text-muted)]">
+                  开启后，细纲生成时 AI 会自行决定合理章数；关闭则固定 10 章。
+                </span>
+              </span>
+            </label>
+
             <button
               type="button"
               disabled={saving}
