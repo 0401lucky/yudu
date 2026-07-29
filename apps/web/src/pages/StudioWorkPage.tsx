@@ -528,7 +528,7 @@ export default function StudioWorkPage() {
               <span>
                 <span className="text-[var(--text)]">破限模式（18+）</span>
                 <span className="mt-1 block text-[var(--text-muted)]">
-                  允许成人向虚构；禁止未成年人相关描写。依赖你自选的可破限模型。
+                  内置 Gemini 向破限提示：可写露骨成人向虚构，默认细腻文风（避免粗口暴躁流）；禁止未成年人相关。仍依赖你自选的模型。
                 </span>
               </span>
             </label>
