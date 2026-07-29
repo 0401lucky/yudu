@@ -1,6 +1,7 @@
 import type { BookSummary } from "@yudu/shared";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import StudioModelPicker from "../components/StudioModelPicker";
 import {
   ApiError,
   createStudioBook,
@@ -106,13 +107,17 @@ export default function StudioListPage() {
       </header>
 
       <section className="mx-auto mt-8 max-w-4xl space-y-4">
+        <StudioModelPicker
+          compact={false}
+          onModelChange={() => setAiReady(isAiSettingsReady(loadAiSettings()))}
+        />
         {!aiReady ? (
           <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-[var(--text)]">
-            尚未配置 new-api。可先写设定与正文，生成前请到{" "}
+            尚未配置完整 API（地址 / 密钥 / 模型）。可先写设定与正文；生成前请完善上方模型或到{" "}
             <Link to="/settings" className="text-[var(--accent)] underline">
               设置
             </Link>{" "}
-            填写 Base URL、API Key 与模型（需中转允许本站 CORS）。
+            填写（需中转允许本站 CORS）。
           </p>
         ) : null}
 

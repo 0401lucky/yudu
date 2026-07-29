@@ -5,11 +5,31 @@ import { useThemePrefs } from "../components/ThemeProvider";
 import { ApiError } from "../lib/api";
 import { AiClientError, listAiModels } from "../lib/aiClient";
 import {
+  getCachedModelsForSettings,
   loadAiSettings,
+  saveAiModelsCache,
   saveAiSettings,
   type AiSettings,
 } from "../lib/aiSettings";
 import { useAuth } from "../lib/auth";
+
+function initialModelsState(): {
+  models: string[];
+  hint: string | null;
+} {
+  const s = loadAiSettings();
+  const c = getCachedModelsForSettings(s);
+  if (!c.models.length) return { models: [], hint: null };
+  const when = c.fetchedAt
+    ? new Date(c.fetchedAt).toLocaleString()
+    : "未知时间";
+  return {
+    models: c.models,
+    hint: c.stale
+      ? `已从本机恢复 ${c.models.length} 个模型（缓存于 ${when}，与当前地址可能不一致，建议重新获取）`
+      : `已从本机恢复 ${c.models.length} 个模型（缓存于 ${when}）`,
+  };
+}
 
 export default function SettingsPage() {
   const { user, logout } = useAuth();
@@ -20,12 +40,17 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [ai, setAi] = useState<AiSettings>(() => loadAiSettings());
   const [aiSaved, setAiSaved] = useState(false);
-  const [models, setModels] = useState<string[]>([]);
+  const initialModels = initialModelsState();
+  const [models, setModels] = useState<string[]>(() => initialModels.models);
   const [modelFilter, setModelFilter] = useState("");
   const [fetchingModels, setFetchingModels] = useState(false);
-  const [modelHint, setModelHint] = useState<string | null>(null);
+  const [modelHint, setModelHint] = useState<string | null>(
+    () => initialModels.hint,
+  );
   /** 列表拉取后仍允许手填（列表没有或自定义 id） */
-  const [manualModel, setManualModel] = useState(false);
+  const [manualModel, setManualModel] = useState(
+    () => initialModels.models.length === 0,
+  );
 
   const filteredModels = useMemo(() => {
     const q = modelFilter.trim().toLowerCase();
@@ -79,15 +104,19 @@ export default function SettingsPage() {
         setModelHint("中转返回了空列表，请手动填写模型 id");
         return;
       }
-      setModels(ids);
+      const cache = saveAiModelsCache(ids, ai.baseUrl);
+      setModels(cache.models);
       setManualModel(false);
-      setModelHint(`已获取 ${ids.length} 个模型，可搜索后选择`);
+      setModelHint(
+        `已获取并保存 ${cache.models.length} 个模型到本机，创作台可直接切换`,
+      );
       // 当前未选或已不在列表中：默认选第一个；已在列表中则保留
       setAi((s) => {
         if (s.model && ids.includes(s.model)) return s;
         return { ...s, model: ids[0]! };
       });
       setAiSaved(false);
+      window.dispatchEvent(new Event("yudu-ai-settings-changed"));
     } catch (err) {
       setModels([]);
       setManualModel(true);
@@ -339,15 +368,22 @@ export default function SettingsPage() {
             type="button"
             onClick={() => {
               saveAiSettings(ai);
+              // 若当前已有列表，同步绑定到新 baseUrl，避免创作台提示 stale
+              if (models.length) {
+                saveAiModelsCache(models, ai.baseUrl);
+              }
               setAi(loadAiSettings());
               setAiSaved(true);
+              window.dispatchEvent(new Event("yudu-ai-settings-changed"));
             }}
             className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm text-[var(--bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
           >
             保存到本机
           </button>
           {aiSaved ? (
-            <p className="text-xs text-emerald-400">已保存到 localStorage</p>
+            <p className="text-xs text-emerald-400">
+              已保存配置与模型列表缓存（仅本浏览器）
+            </p>
           ) : null}
           <Link
             to="/studio"

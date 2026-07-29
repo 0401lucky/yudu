@@ -7,6 +7,7 @@ import type {
 } from "@yudu/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import StudioModelPicker from "../components/StudioModelPicker";
 import {
   ApiError,
   getChapter,
@@ -435,46 +436,49 @@ export default function StudioWorkPage() {
 
   return (
     <main className="min-h-full p-4 md:p-8">
-      <header className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] pb-4">
-        <div className="min-w-0">
-          <p className="text-xs text-[var(--text-muted)]">
-            <Link to="/studio" className="hover:text-[var(--accent)]">
-              创作台
-            </Link>
-            {" / "}
-            {detail.title}
-            {detail.breakLimit ? (
-              <span className="ml-2 text-rose-300">破限</span>
+      <header className="mx-auto flex max-w-5xl flex-col gap-3 border-b border-[var(--border)] pb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs text-[var(--text-muted)]">
+              <Link to="/studio" className="hover:text-[var(--accent)]">
+                创作台
+              </Link>
+              {" / "}
+              {detail.title}
+              {detail.breakLimit ? (
+                <span className="ml-2 text-rose-300">破限</span>
+              ) : null}
+            </p>
+            <h1 className="truncate text-xl font-semibold text-[var(--text)]">
+              {title || detail.title}
+            </h1>
+          </div>
+          <div className="flex flex-wrap gap-2 text-sm">
+            {detail.onShelf ? (
+              <Link
+                to={`/read/${detail.id}`}
+                className="rounded-lg border border-[var(--border)] px-3 py-1.5 hover:border-[var(--accent)]"
+              >
+                去阅读
+              </Link>
             ) : null}
-          </p>
-          <h1 className="truncate text-xl font-semibold text-[var(--text)]">
-            {title || detail.title}
-          </h1>
-        </div>
-        <div className="flex flex-wrap gap-2 text-sm">
-          {detail.onShelf ? (
-            <Link
-              to={`/read/${detail.id}`}
-              className="rounded-lg border border-[var(--border)] px-3 py-1.5 hover:border-[var(--accent)]"
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void toggleShelf()}
+              className="rounded-lg border border-[var(--border)] px-3 py-1.5 hover:border-[var(--accent)] disabled:opacity-60"
             >
-              去阅读
+              {detail.onShelf ? "下架" : "上架到书架"}
+            </button>
+            <Link
+              to="/library"
+              className="rounded-lg border border-[var(--border)] px-3 py-1.5"
+            >
+              书架
             </Link>
-          ) : null}
-          <button
-            type="button"
-            disabled={saving}
-            onClick={() => void toggleShelf()}
-            className="rounded-lg border border-[var(--border)] px-3 py-1.5 hover:border-[var(--accent)] disabled:opacity-60"
-          >
-            {detail.onShelf ? "下架" : "上架到书架"}
-          </button>
-          <Link
-            to="/library"
-            className="rounded-lg border border-[var(--border)] px-3 py-1.5"
-          >
-            书架
-          </Link>
+          </div>
         </div>
+        <StudioModelPicker compact />
       </header>
 
       <nav className="mx-auto mt-4 flex max-w-5xl flex-wrap gap-2">
