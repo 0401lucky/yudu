@@ -125,13 +125,16 @@ export function parseModelsResponse(data: unknown): string[] {
 export async function streamChatCompletion(options: {
   settings: AiSettings;
   messages: ChatMessage[];
+  /** 覆盖 settings.model；创作台按「本书模型」生成时传入 */
+  model?: string;
   temperature?: number;
   signal?: AbortSignal;
   onDelta: (text: string) => void;
 }): Promise<string> {
   const { settings, messages, temperature = 0.85, signal, onDelta } = options;
   const base = normalizeAiBaseUrl(settings.baseUrl);
-  if (!base || !settings.apiKey || !settings.model) {
+  const model = (options.model ?? settings.model).trim();
+  if (!base || !settings.apiKey || !model) {
     throw new AiClientError("请先在设置中填写 API 地址、密钥与模型");
   }
 
@@ -146,7 +149,7 @@ export async function streamChatCompletion(options: {
         ...authHeaders(settings.apiKey),
       },
       body: JSON.stringify({
-        model: settings.model,
+        model,
         messages,
         temperature,
         stream: true,

@@ -1,6 +1,11 @@
+import { MAX_STUDIO_MODEL_CHARS } from "@yudu/shared";
 import { describe, expect, it } from "vitest";
+import type { Env } from "../env";
 import {
+  getStudioBookDetail,
   parseStudioAssets,
+  patchStudioBook,
+  StudioValidationError,
   validateAndNormalizeAssets,
 } from "./studioBook";
 
@@ -46,5 +51,140 @@ describe("studioBook assets", () => {
         updatedAt: 0,
       }),
     ).toThrow(/细纲/);
+  });
+});
+
+/** 最小 mock D1，仅覆盖 patchStudioBook / getStudioBookDetail 用到的 SQL 分支 */
+type BookRow = Record<string, unknown>;
+
+function createStudioEnv(initial: BookRow): { env: Env; book: BookRow } {
+  const book: BookRow = {
+    format: "txt",
+    cover_r2_key: null,
+    status: "ready",
+    error_message: null,
+    chapter_count: 0,
+    created_at: 0,
+    updated_at: 0,
+    group_name: null,
+    source: "studio",
+    on_shelf: 0,
+    break_limit: 0,
+    studio_model: null,
+    studio_assets: null,
+    author: null,
+    ...initial,
+  };
+
+  function summaryRow(b: BookRow) {
+    return {
+      id: b.id,
+      title: b.title,
+      author: b.author ?? null,
+      format: b.format,
+      cover_r2_key: b.cover_r2_key,
+      status: b.status,
+      error_message: b.error_message,
+      chapter_count: b.chapter_count,
+      updated_at: b.updated_at,
+      created_at: b.created_at,
+      group_name: b.group_name,
+      source: b.source,
+      on_shelf: b.on_shelf,
+      break_limit: b.break_limit,
+      chapter_index: null,
+      char_offset: null,
+      progress_char_count: null,
+      last_read_at: null,
+    };
+  }
+
+  const db = {
+    prepare(sql: string) {
+      return {
+        bind(...args: unknown[]) {
+          return {
+            async run() {
+              if (sql.startsWith("UPDATE books SET title")) {
+                const [title, author, breakLimit, studioModel, updatedAt] =
+                  args as [string, string | null, number, string | null, number];
+                book.title = title;
+                book.author = author;
+                book.break_limit = breakLimit;
+                book.studio_model = studioModel;
+                book.updated_at = updatedAt;
+                return { success: true, meta: { changes: 1 } };
+              }
+              throw new Error(`unexpected run sql: ${sql}`);
+            },
+            async first<T>() {
+              if (sql.includes("studio_assets")) return { ...book } as T;
+              if (sql.includes("studio_model, source")) return { ...book } as T;
+              if (sql.includes("FROM books b")) return summaryRow(book) as T;
+              throw new Error(`unexpected first sql: ${sql}`);
+            },
+            async all<T>() {
+              if (sql.includes("FROM chapters")) return { results: [] as T[] };
+              throw new Error(`unexpected all sql: ${sql}`);
+            },
+          };
+        },
+      };
+    },
+  };
+
+  const env = {
+    DB: db,
+    BOOKS_BUCKET: {},
+    SESSION_SECRET: "test",
+  } as unknown as Env;
+
+  return { env, book };
+}
+
+const noProgress = () => null;
+
+describe("studioBook 每本书模型", () => {
+  it("patchStudioBook 持久化 model，getStudioBookDetail 回读", async () => {
+    const { env, book } = createStudioEnv({
+      id: "b1",
+      title: "作品",
+      user_id: "u1",
+    });
+    await patchStudioBook(
+      env,
+      "u1",
+      "b1",
+      { model: "gemini-2.0-pro" },
+      noProgress,
+    );
+    expect(book.studio_model).toBe("gemini-2.0-pro");
+
+    const detail = await getStudioBookDetail(env, "u1", "b1");
+    expect(detail.model).toBe("gemini-2.0-pro");
+  });
+
+  it("model 超长抛 StudioValidationError", async () => {
+    const { env } = createStudioEnv({ id: "b1", title: "作品", user_id: "u1" });
+    await expect(
+      patchStudioBook(
+        env,
+        "u1",
+        "b1",
+        { model: "x".repeat(MAX_STUDIO_MODEL_CHARS + 1) },
+        noProgress,
+      ),
+    ).rejects.toBeInstanceOf(StudioValidationError);
+  });
+
+  it("model=null 清除本书模型", async () => {
+    const { env, book } = createStudioEnv({
+      id: "b1",
+      title: "作品",
+      user_id: "u1",
+      studio_model: "old-model",
+    });
+    await patchStudioBook(env, "u1", "b1", { model: null }, noProgress);
+    expect(book.studio_model).toBeNull();
   });
 });

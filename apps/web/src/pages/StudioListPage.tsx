@@ -109,6 +109,7 @@ export default function StudioListPage() {
       <section className="mx-auto mt-8 max-w-4xl space-y-4">
         <StudioModelPicker
           compact={false}
+          label="默认生成模型"
           onModelChange={() => setAiReady(isAiSettingsReady(loadAiSettings()))}
         />
         {!aiReady ? (
@@ -149,37 +150,48 @@ export default function StudioListPage() {
             {books.map((b) => (
               <li
                 key={b.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-4"
+                className="group flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-4 transition-colors hover:border-[var(--accent)]"
               >
                 <div className="min-w-0 flex-1">
                   <Link
                     to={`/studio/${b.id}`}
-                    className="text-lg font-medium text-[var(--text)] hover:text-[var(--accent)]"
+                    className="inline-flex items-center gap-2 text-lg font-medium text-[var(--text)] transition-colors group-hover:text-[var(--accent)]"
                   >
-                    {b.title}
+                    <span className="truncate">{b.title}</span>
                     {b.breakLimit ? (
-                      <span className="ml-2 rounded bg-rose-500/20 px-1.5 py-0.5 text-xs text-rose-300">
-                        破限
+                      <span className="shrink-0 rounded-full border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 text-xs font-medium text-rose-300">
+                        18+
                       </span>
                     ) : null}
                   </Link>
-                  <p className="mt-1 text-sm text-[var(--text-muted)]">
-                    {b.chapterCount} 章 ·{" "}
-                    {b.onShelf ? "已上架" : "未上架"} · 更新{" "}
-                    {new Date(b.updatedAt).toLocaleString()}
+                  <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-[var(--text-muted)]">
+                    <span>{b.chapterCount} 章</span>
+                    <span className="opacity-40">·</span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          b.onShelf
+                            ? "bg-[var(--accent)]"
+                            : "bg-[var(--text-muted)]"
+                        }`}
+                      />
+                      {b.onShelf ? "已上架" : "未上架"}
+                    </span>
+                    <span className="opacity-40">·</span>
+                    <span>更新 {new Date(b.updatedAt).toLocaleDateString()}</span>
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2 text-sm">
                   <Link
                     to={`/studio/${b.id}`}
-                    className="rounded-lg border border-[var(--border)] px-3 py-1.5 hover:border-[var(--accent)]"
+                    className="rounded-lg border border-[var(--border)] px-3 py-1.5 transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
                   >
                     继续创作
                   </Link>
                   {b.onShelf ? (
                     <Link
                       to={`/read/${b.id}`}
-                      className="rounded-lg border border-[var(--border)] px-3 py-1.5 hover:border-[var(--accent)]"
+                      className="rounded-lg border border-[var(--border)] px-3 py-1.5 transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
                     >
                       阅读
                     </Link>
@@ -187,7 +199,7 @@ export default function StudioListPage() {
                   <button
                     type="button"
                     onClick={() => void onDelete(b)}
-                    className="rounded-lg border border-red-500/40 px-3 py-1.5 text-red-300 hover:bg-red-500/10"
+                    className="rounded-lg border border-red-500/40 px-3 py-1.5 text-red-300 transition-colors hover:bg-red-500/10"
                   >
                     删除
                   </button>

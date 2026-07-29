@@ -200,13 +200,16 @@ export function buildChapterOutlinesMessages(
   title: string,
   assets: StudioAssets,
   chapterCount = 10,
+  autoChapterCount = true,
 ): ChatMessage[] {
   return [
     { role: "system", content: baseSystem(breakLimit) },
     {
       role: "user",
       content: withUserPin(breakLimit, [
-        `为《${title}》写 ${chapterCount} 章分章细纲。`,
+        autoChapterCount
+          ? `为《${title}》写分章细纲（AI 自行决定章数，合理分段）。`
+          : `为《${title}》写 ${chapterCount} 章分章细纲。`,
         formatPremise(assets),
         "人设：",
         formatCharacters(assets.characters),

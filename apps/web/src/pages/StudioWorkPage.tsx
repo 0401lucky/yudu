@@ -20,7 +20,6 @@ import {
 import { AiClientError, streamChatCompletion } from "../lib/aiClient";
 import {
   isAdultConfirmed,
-  isAiSettingsReady,
   loadAiSettings,
   setAdultConfirmed,
 } from "../lib/aiSettings";
@@ -137,8 +136,10 @@ export default function StudioWorkPage() {
   }, [detail, assets, step, activeChapter, loadChapterBody]);
 
   function requireAi(): boolean {
-    if (!isAiSettingsReady()) {
-      setError("请先在「设置」中配置 new-api 的 Base URL、API Key 与模型");
+    const s = loadAiSettings();
+    const model = (detail?.model || s.model).trim();
+    if (!s.baseUrl || !s.apiKey || !model) {
+      setError("请先在「设置」配置 Base URL 与 API Key，并在上方选择本书模型");
       return false;
     }
     return true;
@@ -217,6 +218,7 @@ export default function StudioWorkPage() {
     try {
       await streamChatCompletion({
         settings: loadAiSettings(),
+        model: (detail?.model || loadAiSettings().model).trim() || undefined,
         messages: buildMessages(),
         signal: ac.signal,
         onDelta: (t) => {
@@ -367,6 +369,21 @@ export default function StudioWorkPage() {
     }
   }
 
+  /** 切换本书使用的模型：乐观更新并持久化到该书 */
+  async function selectBookModel(model: string) {
+    if (!detail || !bookId || model === detail.model) return;
+    const prev = detail.model;
+    setDetail({ ...detail, model });
+    setError(null);
+    try {
+      await patchStudioBook(bookId, { model });
+      setStatus(`本书模型已切换：${model}`);
+    } catch (err) {
+      setDetail((d) => (d ? { ...d, model: prev } : d));
+      setError(errMessage(err, "切换模型失败"));
+    }
+  }
+
   function updateCharacter(i: number, patch: Partial<StudioCharacter>) {
     if (!assets) return;
     const characters = assets.characters.map((c, idx) =>
@@ -450,39 +467,35 @@ export default function StudioWorkPage() {
 
   return (
     <main className="min-h-full p-4 md:p-8">
-      <header className="mx-auto flex max-w-5xl flex-col gap-3 border-b border-[var(--border)] pb-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <header className="mx-auto flex max-w-5xl flex-col gap-4 border-b border-[var(--border)] pb-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs text-[var(--text-muted)]">
-              <Link to="/studio" className="hover:text-[var(--accent)]">
+              <Link
+                to="/studio"
+                className="transition-colors hover:text-[var(--accent)]"
+              >
                 创作台
               </Link>
-              {" / "}
-              {detail.title}
-              {detail.breakLimit ? (
-                <span className="ml-2 text-rose-300">破限</span>
-              ) : null}
+              <span className="mx-1.5 opacity-50">/</span>
+              <span className="text-[var(--text)]">{detail.title}</span>
             </p>
-            <h1 className="truncate text-xl font-semibold text-[var(--text)]">
-              {title || detail.title}
-            </h1>
+            <div className="mt-1 flex items-center gap-2">
+              <h1 className="truncate text-2xl font-semibold tracking-tight text-[var(--text)]">
+                {title || detail.title}
+              </h1>
+              {detail.breakLimit ? (
+                <span className="shrink-0 rounded-full border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 text-xs font-medium text-rose-300">
+                  18+
+                </span>
+              ) : null}
+            </div>
           </div>
-          <StudioModelPicker
-            compact
-            onModelChange={(model) => {
-              if (detail && detail.id) {
-                // Save to assets for per-book model
-                setAssets((prev) =>
-                  prev ? { ...prev, model } : prev,
-                );
-              }
-            }}
-          />
-          <div className="flex flex-wrap gap-2 text-sm">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
             {detail.onShelf ? (
               <Link
                 to={`/read/${detail.id}`}
-                className="rounded-lg border border-[var(--border)] px-3 py-1.5 hover:border-[var(--accent)]"
+                className="rounded-lg border border-[var(--border)] px-3 py-1.5 transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
               >
                 去阅读
               </Link>
@@ -491,19 +504,28 @@ export default function StudioWorkPage() {
               type="button"
               disabled={saving}
               onClick={() => void toggleShelf()}
-              className="rounded-lg border border-[var(--border)] px-3 py-1.5 hover:border-[var(--accent)] disabled:opacity-60"
+              className={`rounded-lg px-3 py-1.5 transition-colors disabled:opacity-60 ${
+                detail.onShelf
+                  ? "border border-[var(--border)] hover:border-[var(--accent)]"
+                  : "bg-[var(--accent)] text-[var(--bg)] hover:opacity-90"
+              }`}
             >
               {detail.onShelf ? "下架" : "上架到书架"}
             </button>
             <Link
               to="/library"
-              className="rounded-lg border border-[var(--border)] px-3 py-1.5"
+              className="rounded-lg border border-[var(--border)] px-3 py-1.5 transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
             >
               书架
             </Link>
           </div>
         </div>
-        <StudioModelPicker compact />
+        <StudioModelPicker
+          compact
+          label="本书模型"
+          value={detail.model ?? ""}
+          onSelect={(model) => void selectBookModel(model)}
+        />
       </header>
 
       <nav className="mx-auto mt-4 flex max-w-5xl flex-wrap gap-2">
@@ -739,7 +761,11 @@ export default function StudioWorkPage() {
                 onClick={() => void genChapterOutlines()}
                 className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm text-[var(--bg)] disabled:opacity-60"
               >
-                {generating ? "生成中…" : "AI 生成细纲（约10章）"}
+                {generating
+                  ? "生成中…"
+                  : autoChapterCount
+                    ? "AI 生成细纲（自动章数）"
+                    : "AI 生成细纲（10 章）"}
               </button>
               <button
                 type="button"

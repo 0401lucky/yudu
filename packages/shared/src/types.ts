@@ -88,6 +88,8 @@ export interface StudioAssets {
 /** 创作台作品详情 = 目录 + 设定 */
 export interface StudioBookDetail extends BookDetail {
   source: "studio";
+  /** 本书生成使用的模型 id；未单独设置时为空，回退到全局默认模型 */
+  model?: string;
   assets: StudioAssets;
 }
 

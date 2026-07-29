@@ -3,6 +3,7 @@ import {
   MAX_STUDIO_CHAPTER_CHARS,
   MAX_STUDIO_CHAPTER_OUTLINES,
   MAX_STUDIO_CHARACTERS,
+  MAX_STUDIO_MODEL_CHARS,
   MAX_STUDIO_OUTLINE_CHARS,
   MAX_STUDIO_TITLE_CHARS,
   type BookSummary,
@@ -317,7 +318,7 @@ export async function getStudioBookDetail(
   bookId: string,
 ): Promise<StudioBookDetail> {
   const book = await env.DB.prepare(
-    `SELECT id, title, author, format, status, chapter_count, source, on_shelf, break_limit, studio_assets
+    `SELECT id, title, author, format, status, chapter_count, source, on_shelf, break_limit, studio_model, studio_assets
      FROM books WHERE id = ? AND user_id = ?`,
   )
     .bind(bookId, userId)
@@ -331,6 +332,7 @@ export async function getStudioBookDetail(
       source: string | null;
       on_shelf: number | null;
       break_limit: number | null;
+      studio_model: string | null;
       studio_assets: string | null;
     }>();
 
@@ -359,6 +361,7 @@ export async function getStudioBookDetail(
     source: "studio",
     onShelf: book.on_shelf === 1,
     breakLimit: book.break_limit === 1,
+    model: book.studio_model ?? undefined,
     assets: parseStudioAssets(book.studio_assets),
   };
 }
@@ -371,6 +374,7 @@ export async function patchStudioBook(
     title?: string;
     breakLimit?: boolean;
     author?: string | null;
+    model?: string | null;
   },
   calcProgressPercent: (
     chapterCount: number,
@@ -380,7 +384,7 @@ export async function patchStudioBook(
   ) => number | null,
 ): Promise<BookSummary> {
   const existing = await env.DB.prepare(
-    `SELECT id, title, author, break_limit, source FROM books WHERE id = ? AND user_id = ?`,
+    `SELECT id, title, author, break_limit, studio_model, source FROM books WHERE id = ? AND user_id = ?`,
   )
     .bind(bookId, userId)
     .first<{
@@ -388,6 +392,7 @@ export async function patchStudioBook(
       title: string;
       author: string | null;
       break_limit: number | null;
+      studio_model: string | null;
       source: string | null;
     }>();
 
@@ -417,6 +422,21 @@ export async function patchStudioBook(
     }
   }
 
+  let model = existing.studio_model;
+  if (patch.model !== undefined) {
+    if (patch.model == null) model = null;
+    else {
+      const t = patch.model.trim();
+      if (t.length > MAX_STUDIO_MODEL_CHARS) {
+        throw new StudioValidationError(
+          "INVALID_MODEL",
+          `模型 id 不能超过 ${MAX_STUDIO_MODEL_CHARS} 个字符`,
+        );
+      }
+      model = t || null;
+    }
+  }
+
   const breakLimit =
     patch.breakLimit !== undefined
       ? Boolean(patch.breakLimit)
@@ -424,10 +444,10 @@ export async function patchStudioBook(
 
   const now = Date.now();
   await env.DB.prepare(
-    `UPDATE books SET title = ?, author = ?, break_limit = ?, updated_at = ?
+    `UPDATE books SET title = ?, author = ?, break_limit = ?, studio_model = ?, updated_at = ?
      WHERE id = ? AND user_id = ? AND source = 'studio'`,
   )
-    .bind(title, author, breakLimit ? 1 : 0, now, bookId, userId)
+    .bind(title, author, breakLimit ? 1 : 0, model, now, bookId, userId)
     .run();
 
   // 书名变更时刷新封面

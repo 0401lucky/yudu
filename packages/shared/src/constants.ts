@@ -38,3 +38,5 @@ export const MAX_STUDIO_CHAPTER_CHARS = 200_000;
 export const MAX_STUDIO_CHARACTERS = 40;
 /** 分章细纲条数上限 */
 export const MAX_STUDIO_CHAPTER_OUTLINES = 500;
+/** 每本创作书独立记忆的模型 id 最大长度 */
+export const MAX_STUDIO_MODEL_CHARS = 200;

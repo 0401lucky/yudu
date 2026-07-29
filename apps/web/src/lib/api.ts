@@ -388,7 +388,12 @@ export function getStudioBook(bookId: string): Promise<StudioBookDetail> {
 
 export function patchStudioBook(
   bookId: string,
-  body: { title?: string; breakLimit?: boolean; author?: string | null },
+  body: {
+    title?: string;
+    breakLimit?: boolean;
+    author?: string | null;
+    model?: string | null;
+  },
 ): Promise<BookSummary> {
   return api<BookSummary>(`/api/studio/books/${encodeURIComponent(bookId)}`, {
     method: "PATCH",
