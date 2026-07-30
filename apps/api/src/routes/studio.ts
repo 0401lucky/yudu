@@ -144,6 +144,14 @@ studioRoutes.patch("/books/:id", async (c) => {
               : typeof o.model === "string"
                 ? o.model
                 : undefined,
+        providerId:
+          o.providerId === undefined
+            ? undefined
+            : o.providerId === null
+              ? null
+              : typeof o.providerId === "string"
+                ? o.providerId
+                : undefined,
       },
       calcProgressPercent,
     );

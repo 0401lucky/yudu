@@ -2,32 +2,39 @@ import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, u
 import { Link } from "react-router-dom";
 import { AiClientError, listAiModels } from "../lib/aiClient";
 import {
-  getCachedModelsForSettings,
   loadAiSettings,
-  saveAiModelsCache,
-  setAiModel,
+  resolveProvider,
+  setDefaultModel,
+  setProviderModels,
   type AiSettings,
 } from "../lib/aiSettings";
+
+/** 摊平后的一项：某个提供商下的某个模型 */
+interface ModelOption {
+  providerId: string;
+  providerName: string;
+  model: string;
+}
 
 interface StudioModelPickerProps {
   /** 紧凑条（页眉）或块级卡片（列表页） */
   compact?: boolean;
   className?: string;
-  /** 受控当前模型（如本书模型）；不传即读写全局默认（localStorage） */
-  value?: string;
-  /** 选中模型回调；受控模式下由父级负责持久化（如 patch 到书） */
-  onSelect?: (model: string) => void;
+  /** 受控当前绑定（如本书的提供商+模型）；不传即读写全局默认 */
+  value?: { providerId?: string; model?: string };
+  /** 选中回调；受控模式下由父级负责持久化（如 patch 到书） */
+  onSelect?: (providerId: string, model: string) => void;
   /** 变更后通知（settings 已刷新） */
-  onModelChange?: (model: string, settings: AiSettings) => void;
+  onModelChange?: (settings: AiSettings) => void;
   /** 字段标签（compact 左侧 / 块级标题） */
   label?: string;
 }
 
 /**
- * 创作台模型选择：可搜索、当前项高亮的 combobox。
- * - 非受控：读写 localStorage 全局默认模型（列表页）。
- * - 受控（传 value + onSelect）：显示/切换某本书的模型，持久化交给父级（工作页）。
- * 模型列表始终来自 baseUrl 级的本机缓存，可一键刷新。
+ * 创作台模型选择：跨提供商可搜索的 combobox，显示「提供商名 / 模型 id」。
+ * - 非受控：读写 localStorage 的全局默认提供商与模型（列表页）。
+ * - 受控（传 value + onSelect）：显示/切换某本书的绑定，持久化交给父级（工作页）。
+ * 每个提供商的模型列表各自缓存在本机，可一键刷新全部。
  */
 export default function StudioModelPicker({
   compact = true,
@@ -39,99 +46,101 @@ export default function StudioModelPicker({
 }: StudioModelPickerProps) {
   const controlled = value !== undefined;
   const [settings, setSettings] = useState<AiSettings>(() => loadAiSettings());
-  const [models, setModels] = useState<string[]>([]);
-  const [stale, setStale] = useState(false);
-  const [fetchedAt, setFetchedAt] = useState(0);
   const [fetching, setFetching] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    const reload = () => {
-      const s = loadAiSettings();
-      setSettings(s);
-      const c = getCachedModelsForSettings(s);
-      setModels(c.models);
-      setStale(c.stale);
-      setFetchedAt(c.fetchedAt);
-    };
+    const reload = () => setSettings(loadAiSettings());
     reload();
     const onStorage = (e: StorageEvent) => {
-      if (
-        e.key === "yudu_ai_settings" ||
-        e.key === "yudu_ai_models_cache" ||
-        e.key == null
-      )
-        reload();
+      if (e.key === "yudu_ai_settings" || e.key == null) reload();
     };
-    const onLocal = () => reload();
     window.addEventListener("storage", onStorage);
-    window.addEventListener("yudu-ai-settings-changed", onLocal);
+    window.addEventListener("yudu-ai-settings-changed", reload);
     return () => {
       window.removeEventListener("storage", onStorage);
-      window.removeEventListener("yudu-ai-settings-changed", onLocal);
+      window.removeEventListener("yudu-ai-settings-changed", reload);
     };
   }, []);
 
-  const currentModel = controlled ? value ?? "" : settings.model;
-  const readyCreds = Boolean(settings.baseUrl && settings.apiKey);
+  const options = useMemo<ModelOption[]>(
+    () =>
+      settings.providers.flatMap((p) =>
+        p.models.map((model) => ({
+          providerId: p.id,
+          providerName: p.name,
+          model,
+        })),
+      ),
+    [settings],
+  );
 
-  function choose(model: string) {
-    if (!model) return;
+  // 受控但本书未绑定时，显示实际会用到的全局默认（与生成时的解析一致）
+  const resolved = resolveProvider(
+    settings,
+    controlled ? value.providerId : undefined,
+    controlled ? value.model : undefined,
+  );
+  const current: ModelOption | null = resolved
+    ? {
+        providerId: resolved.provider.id,
+        providerName: resolved.provider.name,
+        model: resolved.model,
+      }
+    : null;
+
+  const lastFetchedAt = useMemo(
+    () => settings.providers.reduce((max, p) => Math.max(max, p.modelsFetchedAt), 0),
+    [settings],
+  );
+
+  function choose(opt: ModelOption) {
     if (controlled) {
-      onSelect?.(model);
+      onSelect?.(opt.providerId, opt.model);
+      onModelChange?.(settings);
     } else {
-      const next = setAiModel(model);
+      const next = setDefaultModel(opt.providerId, opt.model, settings);
       setSettings(next);
-      onSelect?.(model);
+      onSelect?.(opt.providerId, opt.model);
+      window.dispatchEvent(new Event("yudu-ai-settings-changed"));
+      onModelChange?.(next);
     }
-    window.dispatchEvent(new Event("yudu-ai-settings-changed"));
-    onModelChange?.(model, loadAiSettings());
     setErr(null);
   }
 
+  /** 刷新所有已填凭证的 OpenAI 协议提供商；逐个写回，互不覆盖 */
   async function refresh() {
     setErr(null);
-    const s = loadAiSettings();
-    if (!s.baseUrl.trim() || !s.apiKey.trim()) {
-      setErr("请先在设置中填写 API 地址与密钥");
+    const targets = loadAiSettings().providers.filter(
+      (p) => p.protocol === "openai" && p.baseUrl && p.apiKey,
+    );
+    if (!targets.length) {
+      setErr("请先在设置中填写提供商的地址与密钥");
       return;
     }
     setFetching(true);
+    const failed: string[] = [];
     try {
-      const ids = await listAiModels({ baseUrl: s.baseUrl, apiKey: s.apiKey });
-      if (!ids.length) {
-        setErr("中转返回空列表");
-        return;
-      }
-      const cache = saveAiModelsCache(ids, s.baseUrl);
-      setModels(cache.models);
-      setStale(false);
-      setFetchedAt(cache.fetchedAt);
-      // 非受控且全局模型缺失/失效：默认选第一个，避免创作台无模型可用
-      if (!controlled) {
-        const cur = loadAiSettings();
-        if (!cur.model || !ids.includes(cur.model)) {
-          const next = setAiModel(ids[0]!);
-          setSettings(next);
-          onModelChange?.(next.model, next);
+      for (const p of targets) {
+        try {
+          const ids = await listAiModels({ provider: p });
+          if (ids.length) setProviderModels(p.id, ids);
+          else failed.push(p.name);
+        } catch (e) {
+          failed.push(`${p.name}（${e instanceof AiClientError || e instanceof Error ? e.message : "拉取失败"}）`);
         }
       }
+      const next = loadAiSettings();
+      setSettings(next);
       window.dispatchEvent(new Event("yudu-ai-settings-changed"));
-    } catch (e) {
-      setErr(
-        e instanceof AiClientError
-          ? e.message
-          : e instanceof Error
-            ? e.message
-            : "拉取失败",
-      );
+      if (failed.length) setErr(`部分提供商未取到模型：${failed.join("；")}`);
     } finally {
       setFetching(false);
     }
   }
 
-  // 无凭证：引导去设置页
-  if (!readyCreds) {
+  // 一个提供商都没有：引导去设置页
+  if (settings.providers.length === 0) {
     if (compact) {
       return (
         <div className={`flex items-center gap-2 text-sm ${className}`}>
@@ -140,7 +149,7 @@ export default function StudioModelPicker({
             to="/settings"
             className="rounded-lg border border-dashed border-[var(--border)] px-2.5 py-1.5 text-[var(--accent)] transition-colors hover:border-[var(--accent)]"
           >
-            先配置 API →
+            先添加提供商 →
           </Link>
         </div>
       );
@@ -156,7 +165,7 @@ export default function StudioModelPicker({
           </Link>
         </div>
         <p className="mt-2 text-sm text-[var(--text-muted)]">
-          尚未配置 new-api，填写地址与密钥后即可选择模型。
+          尚未添加 AI 提供商，填写地址与密钥后即可选择模型。
         </p>
       </div>
     );
@@ -165,11 +174,10 @@ export default function StudioModelPicker({
   const combo = (
     <ModelCombobox
       compact={compact}
-      currentModel={currentModel}
-      models={models}
+      current={current}
+      options={options}
       fetching={fetching}
-      stale={stale}
-      fetchedAt={fetchedAt}
+      fetchedAt={lastFetchedAt}
       onChoose={choose}
       onRefresh={() => void refresh()}
     />
@@ -209,23 +217,25 @@ export default function StudioModelPicker({
   );
 }
 
+function optionKey(o: ModelOption): string {
+  return `${o.providerId}:${o.model}`;
+}
+
 function ModelCombobox({
   compact,
-  currentModel,
-  models,
+  current,
+  options,
   fetching,
-  stale,
   fetchedAt,
   onChoose,
   onRefresh,
 }: {
   compact: boolean;
-  currentModel: string;
-  models: string[];
+  current: ModelOption | null;
+  options: ModelOption[];
   fetching: boolean;
-  stale: boolean;
   fetchedAt: number;
-  onChoose: (m: string) => void;
+  onChoose: (o: ModelOption) => void;
   onRefresh: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -236,8 +246,12 @@ function ModelCombobox({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return q ? models.filter((m) => m.toLowerCase().includes(q)) : models;
-  }, [models, query]);
+    if (!q) return options;
+    return options.filter(
+      (o) =>
+        o.model.toLowerCase().includes(q) || o.providerName.toLowerCase().includes(q),
+    );
+  }, [options, query]);
 
   useEffect(() => {
     if (!open) return;
@@ -250,12 +264,14 @@ function ModelCombobox({
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
 
+  const currentKey = current ? optionKey(current) : "";
+
   useEffect(() => {
     if (!open) return;
     setQuery("");
-    const idx = models.indexOf(currentModel);
+    const idx = options.findIndex((o) => optionKey(o) === currentKey);
     setActive(idx >= 0 ? idx : 0);
-  }, [open, models, currentModel]);
+  }, [open, options, currentKey]);
 
   // 键盘移动高亮时滚动到可视
   useEffect(() => {
@@ -265,9 +281,9 @@ function ModelCombobox({
       ?.scrollIntoView({ block: "nearest" });
   }, [active, open]);
 
-  function commit(m: string | undefined) {
-    if (!m) return;
-    onChoose(m);
+  function commit(o: ModelOption | undefined) {
+    if (!o) return;
+    onChoose(o);
     setOpen(false);
   }
 
@@ -301,19 +317,18 @@ function ModelCombobox({
         } ${open ? "border-[var(--accent)]" : "border-[var(--border)] hover:border-[var(--accent)]"}`}
       >
         <span
-          className={`truncate font-mono ${currentModel ? "text-[var(--text)]" : "text-[var(--text-muted)]"}`}
+          className={`truncate ${current ? "text-[var(--text)]" : "text-[var(--text-muted)]"}`}
         >
-          {currentModel || "选择模型…"}
+          {current ? (
+            <>
+              <span className="text-[var(--text-muted)]">{current.providerName} / </span>
+              <span className="font-mono">{current.model}</span>
+            </>
+          ) : (
+            "选择模型…"
+          )}
         </span>
-        <span className="flex shrink-0 items-center gap-1.5">
-          {stale ? (
-            <span
-              className="h-1.5 w-1.5 rounded-full bg-amber-400"
-              title="地址已变，建议刷新列表"
-            />
-          ) : null}
-          <ChevronIcon open={open} />
-        </span>
+        <ChevronIcon open={open} />
       </button>
 
       {open ? (
@@ -334,7 +349,7 @@ function ModelCombobox({
                   setActive(0);
                 }}
                 onKeyDown={onKeyDown}
-                placeholder={`搜索 ${models.length} 个模型…`}
+                placeholder={`搜索 ${options.length} 个模型 / 提供商…`}
                 className="w-full bg-transparent text-sm text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none"
               />
             </div>
@@ -346,16 +361,17 @@ function ModelCombobox({
               role="listbox"
               className="yudu-thin-scroll max-h-64 overflow-y-auto p-1"
             >
-              {filtered.map((m, i) => {
-                const selected = m === currentModel;
+              {filtered.map((o, i) => {
+                const key = optionKey(o);
+                const selected = key === currentKey;
                 const isActive = i === active;
                 return (
-                  <li key={m} role="option" aria-selected={selected} data-active={isActive}>
+                  <li key={key} role="option" aria-selected={selected} data-active={isActive}>
                     <button
                       type="button"
                       onMouseEnter={() => setActive(i)}
-                      onClick={() => commit(m)}
-                      className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left font-mono text-sm transition-colors ${
+                      onClick={() => commit(o)}
+                      className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${
                         isActive
                           ? "bg-[var(--accent)]/15 text-[var(--text)]"
                           : "text-[var(--text-muted)] hover:text-[var(--text)]"
@@ -364,7 +380,10 @@ function ModelCombobox({
                       <span className="w-4 shrink-0 text-[var(--accent)]">
                         {selected ? <CheckIcon /> : null}
                       </span>
-                      <span className="truncate">{m}</span>
+                      <span className="truncate">
+                        <span className="text-[var(--text-muted)]">{o.providerName} / </span>
+                        <span className="font-mono">{o.model}</span>
+                      </span>
                     </button>
                   </li>
                 );
@@ -372,15 +391,13 @@ function ModelCombobox({
             </ul>
           ) : (
             <div className="px-3 py-6 text-center text-sm text-[var(--text-muted)]">
-              {models.length ? "无匹配模型" : "本机暂无模型缓存"}
+              {options.length ? "无匹配模型" : "本机暂无模型缓存"}
             </div>
           )}
 
           <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] px-2.5 py-2">
             <span className="truncate text-xs text-[var(--text-muted)]">
-              {fetchedAt
-                ? `缓存于 ${new Date(fetchedAt).toLocaleDateString()}${stale ? " · 地址已变" : ""}`
-                : "尚未拉取列表"}
+              {fetchedAt ? `缓存于 ${new Date(fetchedAt).toLocaleDateString()}` : "尚未拉取列表"}
             </span>
             <button
               type="button"
@@ -389,7 +406,7 @@ function ModelCombobox({
               className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[var(--border)] px-2.5 py-1 text-xs text-[var(--text-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-50"
             >
               <RefreshIcon spinning={fetching} />
-              {fetching ? "拉取中" : models.length ? "刷新" : "获取列表"}
+              {fetching ? "拉取中" : options.length ? "刷新" : "获取列表"}
             </button>
           </div>
         </div>
@@ -409,7 +426,7 @@ function ChevronIcon({ open }: { open: boolean }) {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={`text-[var(--text-muted)] transition-transform ${open ? "rotate-180" : ""}`}
+      className={`shrink-0 text-[var(--text-muted)] transition-transform ${open ? "rotate-180" : ""}`}
       aria-hidden="true"
     >
       <path d="m6 9 6 6 6-6" />

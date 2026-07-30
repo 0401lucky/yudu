@@ -4,11 +4,13 @@
 
 ### Schema 来源
 
-迁移目录：`apps/api/migrations/`（`0001_init` → … → `0006_book_groups` → `0007_studio_books`，按序追加）。
+迁移目录：`apps/api/migrations/`（`0001_init` → … → `0007_studio_books` → `0008_studio_model` → `0009_studio_provider`，按序追加）。
 
 表：`users`、`sessions`、`books`、`chapters`、`reading_progress`、`user_preferences`、`bookmarks`、`reading_stats_daily`、`highlights`。
 
 `books` 创作台扩展列（0007）：`source`（`import`|`studio`）、`on_shelf`、`break_limit`、`studio_assets`（JSON 文本）。书架列表仅返回 `on_shelf=1`；导入书默认上架。
+
+`books` 的 AI 绑定列：`studio_model`（0008）、`studio_provider_id`（0009）。两列都可空，老行为 NULL 时前端回退到浏览器里的全局默认提供商与模型。**只存提供商 id，密钥与地址永远不入库**（见 `spec/web/frontend/quality-guidelines.md` 的 AI 提供商配置）。加列迁移不写 `DROP COLUMN` 回滚——新列可空，旧代码不查询它。
 
 > ⚠️ `studio_assets` 走 `normalizeAssets`（`services/studioBook.ts`）逐字段 `typeof` 白名单，**未列出的字段会被静默丢弃**。给 `StudioPremise` / `StudioCharacter` 等加字段时，必须同步补白名单，否则前端能填能发、存进去就没了，且不报错。这类字段是 JSON 内的，无需 D1 迁移。
 

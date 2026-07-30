@@ -36,6 +36,15 @@
 
 理由：旧数据全在 D1 的 `studio_assets` JSON 里，改字段类型或删除都要写迁移分支。保留后零迁移，且给下游的格式化函数（`formatCharacters` / `formatOutline`）统一处理「有结构化用结构化，否则回退旧字符串」，老作品行为与改造前完全一致。
 
+## AI 提供商配置（`lib/aiSettings.ts`）
+
+`yudu_ai_settings` 存 `providers[]`（每套自带 `protocol` / `baseUrl` / `apiKey` / 独立 `models` 缓存）加一对全局默认 `defaultProviderId` + `defaultModel`。密钥**只存本浏览器**，任何情况下不入库、不上传。
+
+- **迁移写在 `loadAiSettings()` 里，不做独立迁移函数**：读取是唯一入口，放这里保证任何路径进来都是新格式，不存在「忘了调迁移」。旧的 `{baseUrl, apiKey, model}` 会连同 `yudu_ai_models_cache` 并入一个名为「默认」的提供商，回写后删除旧键。**该迁移不可逆**，改动它前先补 `aiSettings.test.ts`。
+- **模型缓存内嵌在 provider 内**，不再有全局 cache 键——拉取 B 的列表不会覆盖 A 的，也就没有「缓存与当前 baseUrl 不匹配」的 stale 概念。
+- **书级绑定是 `providerId` + `model` 两列**（D1 `studio_provider_id` / `studio_model`），与前端的一对默认字段同构，两者必须同时落库。解析统一走 `resolveProvider(settings, bookProviderId?, bookModel?)`：书未绑定或绑定的提供商已删除时回退全局默认，拿不到就返回 `null` 让调用方提示。
+- 新协议只在 `aiClient.ts` 内分发，`listAiModels` / `streamChatCompletion` 的签名接收 `AiProvider` 而非整个 settings，加协议不改调用方。
+
 ## 依赖纪律
 
 当前 runtime 依赖仅：`react`、`react-dom`、`react-router-dom`、`@yudu/shared`。

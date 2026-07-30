@@ -222,6 +222,7 @@ function createStudioEnv(initial: BookRow): { env: Env; book: BookRow } {
     on_shelf: 0,
     break_limit: 0,
     studio_model: null,
+    studio_provider_id: null,
     studio_assets: null,
     author: null,
     ...initial,
@@ -257,12 +258,26 @@ function createStudioEnv(initial: BookRow): { env: Env; book: BookRow } {
           return {
             async run() {
               if (sql.startsWith("UPDATE books SET title")) {
-                const [title, author, breakLimit, studioModel, updatedAt] =
-                  args as [string, string | null, number, string | null, number];
+                const [
+                  title,
+                  author,
+                  breakLimit,
+                  studioModel,
+                  studioProviderId,
+                  updatedAt,
+                ] = args as [
+                  string,
+                  string | null,
+                  number,
+                  string | null,
+                  string | null,
+                  number,
+                ];
                 book.title = title;
                 book.author = author;
                 book.break_limit = breakLimit;
                 book.studio_model = studioModel;
+                book.studio_provider_id = studioProviderId;
                 book.updated_at = updatedAt;
                 return { success: true, meta: { changes: 1 } };
               }
@@ -270,7 +285,7 @@ function createStudioEnv(initial: BookRow): { env: Env; book: BookRow } {
             },
             async first<T>() {
               if (sql.includes("studio_assets")) return { ...book } as T;
-              if (sql.includes("studio_model, source")) return { ...book } as T;
+              if (sql.includes("studio_provider_id, source")) return { ...book } as T;
               if (sql.includes("FROM books b")) return summaryRow(book) as T;
               throw new Error(`unexpected first sql: ${sql}`);
             },
@@ -337,5 +352,59 @@ describe("studioBook 每本书模型", () => {
     });
     await patchStudioBook(env, "u1", "b1", { model: null }, noProgress);
     expect(book.studio_model).toBeNull();
+  });
+
+  it("patchStudioBook 持久化 providerId，getStudioBookDetail 回读", async () => {
+    const { env, book } = createStudioEnv({
+      id: "b1",
+      title: "作品",
+      user_id: "u1",
+    });
+    await patchStudioBook(
+      env,
+      "u1",
+      "b1",
+      { providerId: "prov-abc", model: "claude-opus-5" },
+      noProgress,
+    );
+    expect(book.studio_provider_id).toBe("prov-abc");
+
+    const detail = await getStudioBookDetail(env, "u1", "b1");
+    expect(detail.providerId).toBe("prov-abc");
+    expect(detail.model).toBe("claude-opus-5");
+  });
+
+  it("providerId=null 与空串都清除绑定", async () => {
+    const { env, book } = createStudioEnv({
+      id: "b1",
+      title: "作品",
+      user_id: "u1",
+      studio_provider_id: "old-prov",
+    });
+    await patchStudioBook(env, "u1", "b1", { providerId: null }, noProgress);
+    expect(book.studio_provider_id).toBeNull();
+
+    book.studio_provider_id = "another";
+    await patchStudioBook(env, "u1", "b1", { providerId: "  " }, noProgress);
+    expect(book.studio_provider_id).toBeNull();
+  });
+
+  it("providerId 超长抛 StudioValidationError", async () => {
+    const { env } = createStudioEnv({ id: "b1", title: "作品", user_id: "u1" });
+    await expect(
+      patchStudioBook(
+        env,
+        "u1",
+        "b1",
+        { providerId: "x".repeat(MAX_STUDIO_MODEL_CHARS + 1) },
+        noProgress,
+      ),
+    ).rejects.toBeInstanceOf(StudioValidationError);
+  });
+
+  it("老作品 providerId 为空时详情返回 undefined", async () => {
+    const { env } = createStudioEnv({ id: "b1", title: "老作品", user_id: "u1" });
+    const detail = await getStudioBookDetail(env, "u1", "b1");
+    expect(detail.providerId).toBeUndefined();
   });
 });

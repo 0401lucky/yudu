@@ -24,9 +24,12 @@ import {
 } from "../lib/api";
 import { AiClientError, streamChatCompletion } from "../lib/aiClient";
 import {
+  AI_PROTOCOL_LABELS,
   isAdultConfirmed,
   loadAiSettings,
+  resolveProvider,
   setAdultConfirmed,
+  type AiProvider,
 } from "../lib/aiSettings";
 import {
   buildChapterBodyMessages,
@@ -144,14 +147,24 @@ export default function StudioWorkPage() {
     void loadChapterBody(activeChapter, detail, assets);
   }, [detail, assets, step, activeChapter, loadChapterBody]);
 
-  function requireAi(): boolean {
-    const s = loadAiSettings();
-    const model = (detail?.model || s.model).trim();
-    if (!s.baseUrl || !s.apiKey || !model) {
-      setError("请先在「设置」配置 Base URL 与 API Key，并在上方选择本书模型");
-      return false;
+  /** 解析本书实际要用的提供商与模型；不可用时给出可读提示并返回 null */
+  function requireAi(): { provider: AiProvider; model: string } | null {
+    const resolved = resolveProvider(
+      loadAiSettings(),
+      detail?.providerId,
+      detail?.model,
+    );
+    if (!resolved) {
+      setError("请先在「设置」添加 AI 提供商，并在上方选择本书模型");
+      return null;
     }
-    return true;
+    if (resolved.provider.protocol !== "openai") {
+      setError(
+        `「${resolved.provider.name}」的 ${AI_PROTOCOL_LABELS[resolved.provider.protocol]} 协议将在下一阶段支持，请暂时改用 OpenAI 兼容的提供商`,
+      );
+      return null;
+    }
+    return resolved;
   }
 
   function confirmBreakLimitIfNeeded(next: boolean): boolean {
@@ -225,7 +238,8 @@ export default function StudioWorkPage() {
     onFull: (text: string) => void | Promise<void>,
     onPartial?: (text: string) => void,
   ) {
-    if (!requireAi()) return;
+    const ai = requireAi();
+    if (!ai) return;
     abortRef.current?.abort();
     const ac = new AbortController();
     abortRef.current = ac;
@@ -235,8 +249,8 @@ export default function StudioWorkPage() {
     let acc = "";
     try {
       await streamChatCompletion({
-        settings: loadAiSettings(),
-        model: (detail?.model || loadAiSettings().model).trim() || undefined,
+        provider: ai.provider,
+        model: ai.model,
         messages: buildMessages(),
         signal: ac.signal,
         onDelta: (t) => {
@@ -454,16 +468,18 @@ export default function StudioWorkPage() {
   }
 
   /** 切换本书使用的模型：乐观更新并持久化到该书 */
-  async function selectBookModel(model: string) {
-    if (!detail || !bookId || model === detail.model) return;
-    const prev = detail.model;
-    setDetail({ ...detail, model });
+  /** 本书绑定的提供商与模型一起切换，两者必须同步落库 */
+  async function selectBookModel(providerId: string, model: string) {
+    if (!detail || !bookId) return;
+    if (providerId === detail.providerId && model === detail.model) return;
+    const prev = { providerId: detail.providerId, model: detail.model };
+    setDetail({ ...detail, providerId, model });
     setError(null);
     try {
-      await patchStudioBook(bookId, { model });
+      await patchStudioBook(bookId, { providerId, model });
       setStatus(`本书模型已切换：${model}`);
     } catch (err) {
-      setDetail((d) => (d ? { ...d, model: prev } : d));
+      setDetail((d) => (d ? { ...d, ...prev } : d));
       setError(errMessage(err, "切换模型失败"));
     }
   }
@@ -641,8 +657,8 @@ export default function StudioWorkPage() {
         <StudioModelPicker
           compact
           label="本书模型"
-          value={detail.model ?? ""}
-          onSelect={(model) => void selectBookModel(model)}
+          value={{ providerId: detail.providerId, model: detail.model }}
+          onSelect={(providerId, model) => void selectBookModel(providerId, model)}
         />
       </header>
 

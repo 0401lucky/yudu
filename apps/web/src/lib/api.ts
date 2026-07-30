@@ -393,6 +393,7 @@ export function patchStudioBook(
     breakLimit?: boolean;
     author?: string | null;
     model?: string | null;
+    providerId?: string | null;
   },
 ): Promise<BookSummary> {
   return api<BookSummary>(`/api/studio/books/${encodeURIComponent(bookId)}`, {

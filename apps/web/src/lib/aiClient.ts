@@ -1,4 +1,4 @@
-import type { AiSettings } from "./aiSettings";
+import type { AiProvider } from "./aiSettings";
 
 export class AiClientError extends Error {
   readonly status?: number;
@@ -36,12 +36,11 @@ function authHeaders(apiKey: string): HeadersInit {
  * 浏览器直连，需 CORS。
  */
 export async function listAiModels(options: {
-  baseUrl: string;
-  apiKey: string;
+  provider: AiProvider;
   signal?: AbortSignal;
 }): Promise<string[]> {
-  const base = normalizeAiBaseUrl(options.baseUrl);
-  const apiKey = options.apiKey.trim();
+  const base = normalizeAiBaseUrl(options.provider.baseUrl);
+  const apiKey = options.provider.apiKey.trim();
   if (!base || !apiKey) {
     throw new AiClientError("请先填写 API 地址与密钥");
   }
@@ -123,19 +122,18 @@ export function parseModelsResponse(data: unknown): string[] {
  * 需中转配置 CORS 允许当前 Origin。
  */
 export async function streamChatCompletion(options: {
-  settings: AiSettings;
+  provider: AiProvider;
+  model: string;
   messages: ChatMessage[];
-  /** 覆盖 settings.model；创作台按「本书模型」生成时传入 */
-  model?: string;
   temperature?: number;
   signal?: AbortSignal;
   onDelta: (text: string) => void;
 }): Promise<string> {
-  const { settings, messages, temperature = 0.85, signal, onDelta } = options;
-  const base = normalizeAiBaseUrl(settings.baseUrl);
-  const model = (options.model ?? settings.model).trim();
-  if (!base || !settings.apiKey || !model) {
-    throw new AiClientError("请先在设置中填写 API 地址、密钥与模型");
+  const { provider, messages, temperature = 0.85, signal, onDelta } = options;
+  const base = normalizeAiBaseUrl(provider.baseUrl);
+  const model = options.model.trim();
+  if (!base || !provider.apiKey || !model) {
+    throw new AiClientError("请先在设置中添加 AI 提供商并选择模型");
   }
 
   const url = `${base}/v1/chat/completions`;
@@ -146,7 +144,7 @@ export async function streamChatCompletion(options: {
       signal,
       headers: {
         "Content-Type": "application/json",
-        ...authHeaders(settings.apiKey),
+        ...authHeaders(provider.apiKey),
       },
       body: JSON.stringify({
         model,
