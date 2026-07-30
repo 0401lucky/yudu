@@ -101,14 +101,44 @@ export interface StudioCharacter {
 export interface StudioChapterOutline {
   index: number;
   title: string;
+  /** 本章梗概（主字段） */
   summary: string;
+  /** 本章冲突与看点 */
+  conflict?: string;
+  /** 章末钩子 */
+  hook?: string;
+  /** 出场人物 */
+  characters?: string;
+}
+
+/** 结构化总大纲；旧数据在 StudioAssets.outline 字符串里 */
+export interface StudioOutlineDetail {
+  /** 全书从头到尾在讲的那件事 */
+  throughline?: string;
+  /** 世界观：规则、时代、力量体系 */
+  setting?: string;
+  /** 核心冲突：主角要对抗什么，为什么绕不开 */
+  conflict?: string;
+  /** 起 · 开局 */
+  act1?: string;
+  /** 承 · 发展 */
+  act2?: string;
+  /** 转 · 高潮 */
+  act3?: string;
+  /** 合 · 结局 */
+  act4?: string;
+  /** 支线与伏笔 */
+  subplots?: string;
 }
 
 /** 创作台设定资产（人设/大纲/细纲），跟书上云 */
 export interface StudioAssets {
   premise: StudioPremise;
   characters: StudioCharacter[];
+  /** 旧版整段大纲；历史数据在此，新生成不再写入 */
   outline: string;
+  /** 结构化大纲；为空时回退用 outline */
+  outlineDetail?: StudioOutlineDetail;
   chapterOutlines: StudioChapterOutline[];
   updatedAt: number;
 }

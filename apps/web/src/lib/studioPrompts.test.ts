@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   buildChapterBodyMessages,
+  buildChapterOutlinesMessages,
   buildCharactersMessages,
   buildOutlineMessages,
   buildPremiseMessages,
   getBreakLimitSystemPromptForPreview,
+  formatOutline,
+  parseChapterOutlinesFromAi,
   parseCharactersFromAi,
+  parseOutlineDetailFromAi,
   parsePremiseFromAi,
   parseTitlesFromAi,
 } from "./studioPrompts";
@@ -253,5 +257,157 @@ describe("人设解析", () => {
     }
     expect(user).toMatch(/空泛/);
     expect(user).toMatch(/【角色1】/);
+  });
+});
+
+describe("大纲解析", () => {
+  const OUTLINE = [
+    "主线：一个只想苟活的母亲，最后亲手推翻了她拼命想融入的秩序",
+    "世界观：架空王朝，无灵力，权力靠联姻与兵符流转",
+    "冲突：母子目标相反，且谁退一步都活不成",
+    "起：穿书当夜，她在儿子的鸩酒前坐了一整晚",
+    "承：两次试探，一次结盟，她发现原书剧情正在偏移",
+    "转：宫变夜，她被迫在儿子和满城人之间选一个",
+    "合：各自得偿所愿，也各自失去一样东西",
+    "伏笔：旧护身符埋在第 3 章，第 40 章收",
+  ].join("\n");
+
+  it("8 字段全中", () => {
+    const d = parseOutlineDetailFromAi(OUTLINE)!;
+    expect(d.throughline).toContain("只想苟活的母亲");
+    expect(d.setting).toContain("架空王朝");
+    expect(d.conflict).toContain("谁退一步都活不成");
+    expect(d.act1).toContain("鸩酒");
+    expect(d.act2).toContain("剧情正在偏移");
+    expect(d.act3).toContain("宫变夜");
+    expect(d.act4).toContain("各自失去");
+    expect(d.subplots).toContain("第 40 章收");
+  });
+
+  it("容忍 markdown 星号与列表短横", () => {
+    const d = parseOutlineDetailFromAi("**主线**：甲\n- 冲突: 乙\n* 合：丙")!;
+    expect(d.throughline).toBe("甲");
+    expect(d.conflict).toBe("乙");
+    expect(d.act4).toBe("丙");
+  });
+
+  it("只命中部分字段时其余 undefined", () => {
+    const d = parseOutlineDetailFromAi("主线：甲\n转：乙")!;
+    expect(d.throughline).toBe("甲");
+    expect(d.act3).toBe("乙");
+    expect(d.setting).toBeUndefined();
+    expect(d.subplots).toBeUndefined();
+  });
+
+  it("整段散文返回 null", () => {
+    expect(
+      parseOutlineDetailFromAi("这个故事讲的是一个母亲和她儿子的故事，非常动人。"),
+    ).toBeNull();
+  });
+
+  it("formatOutline 有结构化时用结构化，无时回退 outline", () => {
+    const a = emptyStudioAssets();
+    a.outline = "旧的整段大纲";
+    expect(formatOutline(a)).toBe("旧的整段大纲");
+
+    a.outlineDetail = parseOutlineDetailFromAi(OUTLINE)!;
+    const s = formatOutline(a);
+    expect(s).toContain("一句话主线：");
+    expect(s).toContain("转 · 高潮：");
+    expect(s).not.toContain("旧的整段大纲");
+  });
+
+  it("outlineDetail 全空白时仍回退 outline", () => {
+    const a = emptyStudioAssets();
+    a.outline = "旧大纲";
+    a.outlineDetail = { throughline: "   " };
+    expect(formatOutline(a)).toBe("旧大纲");
+  });
+
+  it("buildOutlineMessages 含 8 个字段名", () => {
+    const user = buildOutlineMessages(false, "测试", emptyStudioAssets())[1]!
+      .content;
+    for (const k of ["主线", "世界观", "冲突", "起", "承", "转", "合", "伏笔"]) {
+      expect(user).toContain(`${k}：`);
+    }
+  });
+});
+
+describe("细纲解析", () => {
+  const CHAPTERS = [
+    "【第1章】",
+    "标题：雨夜来客",
+    "梗概：林晚在陌生的床上醒来，发现自己成了侯府主母",
+    "冲突：贴身嬷嬷察觉她连早膳的规矩都不会",
+    "钩子：门外传来第二次敲门，来的人喊她「母亲」",
+    "人物：林晚、周嬷嬷、沈篁",
+    "",
+    "【第2章】",
+    "标题：鸩酒",
+    "梗概：沈篁端来一碗汤",
+    "冲突：她知道原书里这碗汤有毒，但拒绝就等于露馅",
+    "钩子：她喝下去了，沈篁的手在抖",
+    "人物：林晚、沈篁",
+  ].join("\n");
+
+  it("块格式解析出全部字段", () => {
+    const cs = parseChapterOutlinesFromAi(CHAPTERS);
+    expect(cs).toHaveLength(2);
+    expect(cs[0]!.title).toBe("雨夜来客");
+    expect(cs[0]!.summary).toContain("侯府主母");
+    expect(cs[0]!.conflict).toContain("早膳的规矩");
+    expect(cs[0]!.hook).toContain("喊她「母亲」");
+    expect(cs[0]!.characters).toBe("林晚、周嬷嬷、沈篁");
+    expect(cs[1]!.title).toBe("鸩酒");
+    expect(cs[1]!.index).toBe(1);
+  });
+
+  it("没有【第N章】标记时按空行分块", () => {
+    const cs = parseChapterOutlinesFromAi(
+      ["标题：甲", "梗概：甲事", "钩子：甲钩", "", "标题：乙", "梗概：乙事", "钩子：乙钩"].join("\n"),
+    );
+    expect(cs).toHaveLength(2);
+    expect(cs[1]!.title).toBe("乙");
+    expect(cs[1]!.hook).toBe("乙钩");
+  });
+
+  it("只有一章也能解析", () => {
+    const cs = parseChapterOutlinesFromAi("【第1章】\n标题：独章\n梗概：发生了点事");
+    expect(cs).toHaveLength(1);
+    expect(cs[0]!.title).toBe("独章");
+  });
+
+  it("旧格式退化解析进 summary", () => {
+    const cs = parseChapterOutlinesFromAi(
+      "1. 雨夜来客｜林晚醒来发现自己穿了，章末有人敲门\n2. 鸩酒｜她喝下了那碗汤",
+    );
+    expect(cs).toHaveLength(2);
+    expect(cs[0]!.title).toBe("雨夜来客");
+    expect(cs[0]!.summary).toContain("有人敲门");
+    expect(cs[0]!.hook).toBeUndefined();
+  });
+
+  it("块内无标题且字段不足时丢弃该块", () => {
+    const cs = parseChapterOutlinesFromAi("【第1章】\n钩子：只有钩子\n\n【第2章】\n标题：甲\n梗概：乙");
+    expect(cs).toHaveLength(1);
+    expect(cs[0]!.title).toBe("甲");
+  });
+
+  it("buildChapterBodyMessages 含本章冲突与钩子并要求收在钩子上", () => {
+    const assets = emptyStudioAssets();
+    const cs = parseChapterOutlinesFromAi(CHAPTERS);
+    const user = buildChapterBodyMessages(false, "测试", assets, cs[0]!, 0)[1]!
+      .content;
+    expect(user).toContain("早膳的规矩");
+    expect(user).toContain("喊她「母亲」");
+    expect(user).toContain("林晚、周嬷嬷、沈篁");
+    expect(user).toMatch(/收在.*章末钩子/);
+  });
+
+  it("细纲生成提示词里的总大纲走 formatOutline", () => {
+    const assets = emptyStudioAssets();
+    assets.outlineDetail = { act3: "宫变夜" };
+    const user = buildChapterOutlinesMessages(false, "测试", assets)[1]!.content;
+    expect(user).toContain("转 · 高潮：宫变夜");
   });
 });

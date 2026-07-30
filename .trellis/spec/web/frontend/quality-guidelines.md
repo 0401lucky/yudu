@@ -22,7 +22,19 @@
 - **不用 JSON mode**，用「纯文本 + `字段名：值` 行」约定；行扫描统一走 `scanFields`（会剥掉 markdown 星号与列表符号）。
 - **必须有退化路径**：主解析出 0 条时退回旧格式或更宽松的切分（见 `parseCharactersFromAi` → `parseLegacyCharacters`、`parseTitlesFromAi` 的裸列表兜底）。
 - **解析失败不清空用户数据**：报可读错误并保留原值；多字段结果逐项「有值才覆盖」（见 `genPremise`）。
-- 提示词里的字段名与解析、UI 标签共用一张常量表（`CHARACTER_FIELDS`），避免三处漂移。
+- 提示词里的字段名与解析、UI 标签共用一张常量表（`CHARACTER_FIELDS` / `OUTLINE_FIELDS` / `CHAPTER_FIELDS`），避免三处漂移。
+
+### 结构化字段与旧字符串共存
+
+创作台把自由文本升级为结构化字段时，**保留原字符串字段装历史数据，不做迁移**。已按此模式做过三次：
+
+| 结构化字段 | 旧字符串 | 界面 |
+|---|---|---|
+| `StudioCharacter` 8 维度 | `description` | 展开区底部「旧描述」虚线框 |
+| `StudioAssets.outlineDetail` | `outline` | 面板底部「旧大纲」虚线框 |
+| `StudioChapterOutline` 的 `conflict`/`hook` | `summary` | `summary` 仍作主字段「本章梗概」 |
+
+理由：旧数据全在 D1 的 `studio_assets` JSON 里，改字段类型或删除都要写迁移分支。保留后零迁移，且给下游的格式化函数（`formatCharacters` / `formatOutline`）统一处理「有结构化用结构化，否则回退旧字符串」，老作品行为与改造前完全一致。
 
 ## 依赖纪律
 

@@ -9,7 +9,9 @@ import type {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import StudioModelPicker from "../components/StudioModelPicker";
+import StudioChaptersPanel from "../components/StudioChaptersPanel";
 import StudioCharacterPanel from "../components/StudioCharacterPanel";
+import StudioOutlinePanel from "../components/StudioOutlinePanel";
 import StudioPremisePanel from "../components/StudioPremisePanel";
 import {
   ApiError,
@@ -35,6 +37,7 @@ import {
   buildTitlesMessages,
   parseChapterOutlinesFromAi,
   parseCharactersFromAi,
+  parseOutlineDetailFromAi,
   parsePremiseFromAi,
   parseTitlesFromAi,
 } from "../lib/studioPrompts";
@@ -69,6 +72,8 @@ export default function StudioWorkPage() {
   const [titleCandidates, setTitleCandidates] = useState<string[]>([]);
   /** 刚手动新增的角色 id，用于让该卡默认展开 */
   const [newCharacterId, setNewCharacterId] = useState<string | null>(null);
+  /** 刚手动新增的细纲章序号，用于让该卡默认展开 */
+  const [newChapterIndex, setNewChapterIndex] = useState<number | null>(null);
 
   // 正文编辑
   const [activeChapter, setActiveChapter] = useState(0);
@@ -323,21 +328,35 @@ export default function StudioWorkPage() {
     );
   }
 
+  /**
+   * 生成总大纲。解析出结构化字段就写 outlineDetail；
+   * 模型回散文时退化为把整段塞进旧的 outline 字符串（即改造前行为）。
+   * 不做流式局部回填——半截文本解析出的字段会闪烁。
+   */
   async function genOutline() {
     if (!assets || !detail) return;
-    let draft = "";
     await runStream(
       () => buildOutlineMessages(breakLimit, title || detail.title, assets),
       async (text) => {
+        const detailed = parseOutlineDetailFromAi(text);
+        if (detailed) {
+          await saveAssets({
+            ...assets,
+            outlineDetail: detailed,
+            updatedAt: Date.now(),
+          });
+          return;
+        }
+        const trimmed = text.trim();
+        if (!trimmed) {
+          setError("未能解析总大纲，请重试");
+          return;
+        }
         await saveAssets({
           ...assets,
-          outline: text.trim(),
+          outline: trimmed,
           updatedAt: Date.now(),
         });
-      },
-      (partial) => {
-        draft = partial;
-        setAssets((prev) => (prev ? { ...prev, outline: draft } : prev));
       },
     );
   }
@@ -500,12 +519,30 @@ export default function StudioWorkPage() {
   function addChapterOutline() {
     if (!assets) return;
     const i = assets.chapterOutlines.length;
+    setNewChapterIndex(i);
     setAssets({
       ...assets,
       chapterOutlines: [
         ...assets.chapterOutlines,
         { index: i, title: `第 ${i + 1} 章`, summary: "" },
       ],
+    });
+  }
+
+  function removeChapterOutline(i: number) {
+    if (!assets) return;
+    const target = assets.chapterOutlines[i];
+    if (!target) return;
+    const ok = window.confirm(
+      `删除第 ${i + 1} 章「${target.title || "未命名"}」的细纲？记得随后点「保存细纲」。`,
+    );
+    if (!ok) return;
+    setNewChapterIndex(null);
+    setAssets({
+      ...assets,
+      chapterOutlines: assets.chapterOutlines
+        .filter((_, idx) => idx !== i)
+        .map((c, idx) => ({ ...c, index: idx })),
     });
   }
 
@@ -676,106 +713,38 @@ export default function StudioWorkPage() {
         ) : null}
 
         {step === "outline" ? (
-          <div className="space-y-4 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5">
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={generating}
-                onClick={() => void genOutline()}
-                className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm text-[var(--bg)] disabled:opacity-60"
-              >
-                {generating ? "生成中…" : "AI 生成总大纲"}
-              </button>
-              <button
-                type="button"
-                disabled={saving || generating}
-                onClick={() =>
-                  void saveAssets({
-                    ...assets,
-                    outline: assets.outline,
-                    updatedAt: Date.now(),
-                  })
-                }
-                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm"
-              >
-                保存大纲
-              </button>
-              {generating ? (
-                <button
-                  type="button"
-                  onClick={() => abortRef.current?.abort()}
-                  className="rounded-lg border border-red-500/40 px-3 py-1.5 text-sm text-red-300"
-                >
-                  停止
-                </button>
-              ) : null}
-            </div>
-            <textarea
-              value={assets.outline}
-              onChange={(e) =>
-                setAssets({ ...assets, outline: e.target.value })
-              }
-              rows={16}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 font-serif text-[var(--text)] leading-relaxed"
-              placeholder="总大纲…"
-            />
-          </div>
+          <StudioOutlinePanel
+            outline={assets.outline}
+            outlineDetail={assets.outlineDetail ?? {}}
+            saving={saving}
+            generating={generating}
+            onDetailChange={(patch) =>
+              setAssets({
+                ...assets,
+                outlineDetail: { ...assets.outlineDetail, ...patch },
+              })
+            }
+            onOutlineChange={(v) => setAssets({ ...assets, outline: v })}
+            onGenerate={() => void genOutline()}
+            onSave={() => void saveAssets({ ...assets, updatedAt: Date.now() })}
+            onStop={() => abortRef.current?.abort()}
+          />
         ) : null}
 
         {step === "chapters" ? (
-          <div className="space-y-4 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5">
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={generating}
-                onClick={() => void genChapterOutlines()}
-                className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm text-[var(--bg)] disabled:opacity-60"
-              >
-                {generating
-                  ? "生成中…"
-                  : (assets.premise.autoChapterCount ?? true)
-                    ? "AI 生成细纲（自动章数）"
-                    : "AI 生成细纲（10 章）"}
-              </button>
-              <button
-                type="button"
-                onClick={addChapterOutline}
-                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm"
-              >
-                加一章细纲
-              </button>
-              <button
-                type="button"
-                disabled={saving || generating}
-                onClick={() => void saveAssets(assets)}
-                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm"
-              >
-                保存细纲
-              </button>
-            </div>
-            <ul className="space-y-3">
-              {assets.chapterOutlines.map((ch, i) => (
-                <li key={i} className="space-y-2 rounded-lg border border-[var(--border)] p-3">
-                  <input
-                    value={ch.title}
-                    onChange={(e) =>
-                      updateChapterOutline(i, { title: e.target.value })
-                    }
-                    className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 text-sm font-medium"
-                  />
-                  <textarea
-                    value={ch.summary}
-                    onChange={(e) =>
-                      updateChapterOutline(i, { summary: e.target.value })
-                    }
-                    rows={3}
-                    className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 text-sm"
-                    placeholder="节拍 / 冲突 / 钩子"
-                  />
-                </li>
-              ))}
-            </ul>
-          </div>
+          <StudioChaptersPanel
+            chapters={assets.chapterOutlines}
+            newlyAddedIndex={newChapterIndex}
+            autoChapterCount={assets.premise.autoChapterCount ?? true}
+            saving={saving}
+            generating={generating}
+            onChange={updateChapterOutline}
+            onAdd={addChapterOutline}
+            onRemove={removeChapterOutline}
+            onGenerate={() => void genChapterOutlines()}
+            onSave={() => void saveAssets(assets)}
+            onStop={() => abortRef.current?.abort()}
+          />
         ) : null}
 
         {step === "body" ? (

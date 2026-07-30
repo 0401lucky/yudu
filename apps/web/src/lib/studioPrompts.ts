@@ -1,4 +1,10 @@
-import type { StudioAssets, StudioChapterOutline, StudioCharacter, StudioPremise } from "@yudu/shared";
+import type {
+  StudioAssets,
+  StudioChapterOutline,
+  StudioCharacter,
+  StudioOutlineDetail,
+  StudioPremise,
+} from "@yudu/shared";
 import type { ChatMessage } from "./aiClient";
 import { GENRE_PRESETS, LENGTH_PRESETS, TONE_PRESETS } from "./studioPresets";
 
@@ -420,6 +426,59 @@ export function parseCharactersFromAi(text: string): StudioCharacter[] {
   return out.length ? out : parseLegacyCharacters(text);
 }
 
+/**
+ * 结构化总大纲的 8 个字段。
+ * 与 CHARACTER_FIELDS 同构：aiKey 给 AI 与解析器，label 给界面。
+ */
+export const OUTLINE_FIELDS = [
+  { key: "throughline", aiKey: "主线", label: "一句话主线" },
+  { key: "setting", aiKey: "世界观", label: "世界观设定" },
+  { key: "conflict", aiKey: "冲突", label: "核心冲突" },
+  { key: "act1", aiKey: "起", label: "起 · 开局" },
+  { key: "act2", aiKey: "承", label: "承 · 发展" },
+  { key: "act3", aiKey: "转", label: "转 · 高潮" },
+  { key: "act4", aiKey: "合", label: "合 · 结局" },
+  { key: "subplots", aiKey: "伏笔", label: "支线与伏笔" },
+] as const satisfies readonly {
+  key: keyof StudioOutlineDetail;
+  aiKey: string;
+  label: string;
+}[];
+
+const OUTLINE_KEYS = OUTLINE_FIELDS.map((f) => f.aiKey);
+
+/** 分章细纲的字段；summary 是主字段，语义与改造前一致 */
+export const CHAPTER_FIELDS = [
+  { key: "summary", aiKey: "梗概", label: "本章梗概" },
+  { key: "conflict", aiKey: "冲突", label: "本章冲突" },
+  { key: "hook", aiKey: "钩子", label: "章末钩子" },
+  { key: "characters", aiKey: "人物", label: "出场人物" },
+] as const satisfies readonly {
+  key: "summary" | "conflict" | "hook" | "characters";
+  aiKey: string;
+  label: string;
+}[];
+
+const CHAPTER_KEYS = ["标题", ...CHAPTER_FIELDS.map((f) => f.aiKey)] as const;
+
+/** 结构化大纲是否有内容 */
+export function hasOutlineDetail(d?: StudioOutlineDetail): boolean {
+  return Boolean(d && OUTLINE_FIELDS.some((f) => d[f.key]?.trim()));
+}
+
+/** 给下游用的大纲文本：优先结构化，否则回退旧字符串 */
+export function formatOutline(assets: StudioAssets): string {
+  if (hasOutlineDetail(assets.outlineDetail)) {
+    return OUTLINE_FIELDS.map((f) => {
+      const v = assets.outlineDetail![f.key];
+      return v?.trim() ? `${f.label}：${v.trim()}` : null;
+    })
+      .filter((x): x is string => x != null)
+      .join("\n");
+  }
+  return assets.outline || "（无）";
+}
+
 export function buildOutlineMessages(
   breakLimit: boolean,
   title: string,
@@ -430,17 +489,39 @@ export function buildOutlineMessages(
     {
       role: "user",
       content: withUserPin(breakLimit, [
-        `为《${title}》写一份总大纲（起承转合、主线冲突、结局方向）。`,
+        `为《${title}》写总大纲。`,
         formatPremise(assets),
         "人设：",
         formatCharacters(assets.characters),
+        "写作要求：",
+        "- 「主线」一句话说清全书在讲什么，不要写成宣传语。",
+        "- 起承转合每项写 2～4 句，说清「发生什么事」和「因此主角被推到哪一步」，不要只给抽象概括。",
+        "- 「冲突」要说明为什么主角绕不开，退让会失去什么。",
+        "- 「伏笔」要写清埋在哪、大致什么时候收。",
         breakLimit
-          ? "破限：可规划情欲线与高张力冲突，但节奏要有起伏，不要全程暴躁对骂。"
+          ? "- 破限：可规划情欲线与高张力冲突，但节奏要有起伏，不要全程暴躁对骂。"
           : null,
-        "直接输出大纲正文，不要前言。",
+        "",
+        "严格按下面 8 行输出，一行一个字段，不要 markdown 标题、不要前言：",
+        ...OUTLINE_FIELDS.map((f) => `${f.aiKey}：…`),
       ].filter((x): x is string => x != null)),
     },
   ];
+}
+
+/**
+ * 解析结构化大纲；一个字段都没命中时返回 null，
+ * 由调用方退化为「整段塞进 outline 字符串」的既有行为。
+ */
+export function parseOutlineDetailFromAi(
+  text: string,
+): StudioOutlineDetail | null {
+  const fields = scanFields(text, OUTLINE_KEYS);
+  const hit = OUTLINE_FIELDS.filter((f) => fields.get(f.aiKey));
+  if (!hit.length) return null;
+  const out: StudioOutlineDetail = {};
+  for (const f of hit) out[f.key] = fields.get(f.aiKey)!;
+  return out;
 }
 
 export function buildChapterOutlinesMessages(
@@ -456,24 +537,36 @@ export function buildChapterOutlinesMessages(
       role: "user",
       content: withUserPin(breakLimit, [
         autoChapterCount
-          ? `为《${title}》写分章细纲（AI 自行决定章数，合理分段）。`
+          ? `为《${title}》写分章细纲（自行决定章数，合理分段）。`
           : `为《${title}》写 ${chapterCount} 章分章细纲。`,
         formatPremise(assets),
         "人设：",
         formatCharacters(assets.characters),
         "总大纲：",
-        assets.outline || "（无）",
-        "每行一章，格式：章标题｜本章节拍与冲突与章末钩子",
+        formatOutline(assets),
+        "写作要求：",
+        "- 每章必须有一个明确的冲突或转折，没有看点的过场章直接并掉。",
+        "- 「钩子」是读者点下一章的理由：一个未解的问题、一个突然出现的人、一句没说完的话。别写「悬念丛生」这种空话。",
+        "- 「人物」只列本章真正出场的人，用顿号分隔。",
         breakLimit
-          ? "细纲可点出尺度与情感，用词克制专业，不要用脏字写细纲。"
+          ? "- 细纲可点出尺度与情感，用词克制专业，不要用脏字写细纲。"
           : null,
-        "不要其它说明。",
+        "",
+        "严格按下面的块格式输出，一章一块，块之间空一行，不要 markdown 标题、不要前言：",
+        "",
+        "【第1章】",
+        "标题：雨夜来客",
+        ...CHAPTER_FIELDS.map((f) => `${f.aiKey}：…`),
+        "",
+        "【第2章】",
+        "（同上格式）",
       ].filter((x): x is string => x != null)),
     },
   ];
 }
 
-export function parseChapterOutlinesFromAi(text: string): StudioChapterOutline[] {
+/** 旧格式退化解析：`章标题｜摘要`，一行一章 */
+function parseLegacyChapterOutlines(text: string): StudioChapterOutline[] {
   const lines = text
     .split(/\r?\n/)
     .map((l) => l.trim())
@@ -499,6 +592,43 @@ export function parseChapterOutlinesFromAi(text: string): StudioChapterOutline[]
   return out;
 }
 
+/** 把整段输出切成一章一块 */
+function splitChapterBlocks(text: string): string[] {
+  const byMarker = text
+    .split(/【\s*第?\s*\d+\s*章?\s*】/)
+    .map((b) => b.trim())
+    .filter(Boolean);
+  if (byMarker.length >= 2) return byMarker;
+  const byBlank = text
+    .split(/\r?\n\s*\r?\n/)
+    .map((b) => b.trim())
+    .filter(Boolean);
+  return byBlank.length >= 1 ? byBlank : [];
+}
+
+export function parseChapterOutlinesFromAi(text: string): StudioChapterOutline[] {
+  const out: StudioChapterOutline[] = [];
+  for (const block of splitChapterBlocks(text)) {
+    const fields = scanFields(block, CHAPTER_KEYS);
+    const title = fields.get("标题");
+    const hit = CHAPTER_FIELDS.filter((f) => fields.get(f.aiKey));
+    // 有标题，或至少两个字段命中，才认为是一章
+    if (!title && hit.length < 2) continue;
+
+    const chapter: StudioChapterOutline = {
+      index: out.length,
+      title: title || `第 ${out.length + 1} 章`,
+      summary: fields.get("梗概") || "",
+    };
+    for (const f of hit) {
+      if (f.key === "summary") continue;
+      chapter[f.key] = fields.get(f.aiKey)!;
+    }
+    out.push(chapter);
+  }
+  return out.length ? out : parseLegacyChapterOutlines(text);
+}
+
 export function buildChapterBodyMessages(
   breakLimit: boolean,
   title: string,
@@ -513,22 +643,28 @@ export function buildChapterBodyMessages(
       content: withUserPin(breakLimit, [
         `撰写《${title}》第 ${chapterIndex + 1} 章正文。`,
         `章标题：${chapter.title}`,
-        `本章细纲：${chapter.summary || "（无细纲，自由发挥但贴合全书）"}`,
+        `本章梗概：${chapter.summary || "（无梗概，自由发挥但贴合全书）"}`,
+        chapter.conflict ? `本章冲突：${chapter.conflict}` : null,
+        chapter.hook ? `章末钩子：${chapter.hook}` : null,
+        chapter.characters ? `出场人物：${chapter.characters}` : null,
         formatPremise(assets),
         "人设：",
         formatCharacters(assets.characters),
         "总大纲（供一致性参考）：",
-        assets.outline || "（无）",
+        formatOutline(assets),
         "要求：",
         "- 直接输出小说正文纯文本；可含对话与心理。",
         "- 不要「本章完」以外的作者旁白、分析、免责。",
         "- 开篇直接进场景或冲突，别先铺设定与背景交代。",
         "- 用具体场景推进，别写概述和流水账：多写此刻正在发生的画面与对话，少用「后来怎样怎样」一笔带过。",
+        chapter.hook
+          ? "- 本章必须收在上面那个「章末钩子」上，最后一段就把钩子亮出来，不要提前解掉。"
+          : null,
         "- 篇幅约 1500～3500 字。",
         breakLimit
           ? "- 破限：亲密/情欲戏写满、写具体；文风细腻有欲，禁止通篇粗口暴躁与油腻重复。"
           : "- 文风平稳有画面，人物语气自然，忌无脑暴躁。",
-      ]),
+      ].filter((x): x is string => x != null)),
     },
   ];
 }

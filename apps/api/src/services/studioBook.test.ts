@@ -143,6 +143,66 @@ describe("studioBook assets", () => {
     expect(c.motivation).toBeUndefined();
     expect(c.flaw).toBeUndefined();
   });
+
+  it("保留结构化大纲 8 字段", () => {
+    const a = validateAndNormalizeAssets({
+      premise: {},
+      characters: [],
+      outline: "",
+      outlineDetail: {
+        throughline: "母亲想保命，儿子要造反",
+        setting: "架空王朝，无灵力",
+        conflict: "母子目标相反且都不能退",
+        act1: "穿书当夜",
+        act2: "两次试探",
+        act3: "宫变",
+        act4: "各自得偿所愿又都失去点什么",
+        subplots: "旧护身符伏笔在第 40 章收",
+      },
+      chapterOutlines: [],
+      updatedAt: 0,
+    });
+    expect(a.outlineDetail?.throughline).toBe("母亲想保命，儿子要造反");
+    expect(a.outlineDetail?.act3).toBe("宫变");
+    expect(a.outlineDetail?.subplots).toBe("旧护身符伏笔在第 40 章收");
+  });
+
+  it("结构化大纲全空时不写入该键", () => {
+    const a = validateAndNormalizeAssets({
+      premise: {},
+      characters: [],
+      outline: "旧大纲",
+      outlineDetail: { throughline: 1 as unknown as string },
+      chapterOutlines: [],
+      updatedAt: 0,
+    });
+    expect(a.outlineDetail).toBeUndefined();
+    expect(a.outline).toBe("旧大纲");
+  });
+
+  it("细纲保留冲突 / 钩子 / 出场人物，非字符串丢弃", () => {
+    const a = validateAndNormalizeAssets({
+      premise: {},
+      characters: [],
+      outline: "",
+      chapterOutlines: [
+        {
+          index: 0,
+          title: "雨夜来客",
+          summary: "林晚醒来",
+          conflict: "被认出不是原主",
+          hook: "门外传来第二次敲门",
+          characters: 42 as unknown as string,
+        },
+      ],
+      updatedAt: 0,
+    });
+    const ch = a.chapterOutlines[0]!;
+    expect(ch.conflict).toBe("被认出不是原主");
+    expect(ch.hook).toBe("门外传来第二次敲门");
+    expect(ch.characters).toBeUndefined();
+    expect(ch.summary).toBe("林晚醒来");
+  });
 });
 
 /** 最小 mock D1，仅覆盖 patchStudioBook / getStudioBookDetail 用到的 SQL 分支 */

@@ -11,6 +11,7 @@ import {
   type StudioBookDetail,
   type StudioChapterOutline,
   type StudioCharacter,
+  type StudioOutlineDetail,
   type StudioPremise,
 } from "@yudu/shared";
 import type { Env } from "../env";
@@ -133,17 +134,40 @@ function normalizeAssets(input: Partial<StudioAssets> | null | undefined): Studi
   )
     ? input.chapterOutlines
         .filter((c): c is StudioChapterOutline => c != null && typeof c === "object")
-        .map((c, i) => ({
-          index: typeof c.index === "number" && Number.isInteger(c.index) ? c.index : i,
-          title: typeof c.title === "string" ? c.title : `第 ${i + 1} 章`,
-          summary: typeof c.summary === "string" ? c.summary : "",
-        }))
+        .map((c, i) => {
+          const out: StudioChapterOutline = {
+            index: typeof c.index === "number" && Number.isInteger(c.index) ? c.index : i,
+            title: typeof c.title === "string" ? c.title : `第 ${i + 1} 章`,
+            summary: typeof c.summary === "string" ? c.summary : "",
+          };
+          if (typeof c.conflict === "string") out.conflict = c.conflict;
+          if (typeof c.hook === "string") out.hook = c.hook;
+          if (typeof c.characters === "string") out.characters = c.characters;
+          return out;
+        })
     : [];
+
+  // 结构化大纲；全部字段缺失时不写入该键，保持与旧数据同构
+  let outlineDetail: StudioOutlineDetail | undefined;
+  if (input.outlineDetail && typeof input.outlineDetail === "object") {
+    const o = input.outlineDetail;
+    const next: StudioOutlineDetail = {};
+    if (typeof o.throughline === "string") next.throughline = o.throughline;
+    if (typeof o.setting === "string") next.setting = o.setting;
+    if (typeof o.conflict === "string") next.conflict = o.conflict;
+    if (typeof o.act1 === "string") next.act1 = o.act1;
+    if (typeof o.act2 === "string") next.act2 = o.act2;
+    if (typeof o.act3 === "string") next.act3 = o.act3;
+    if (typeof o.act4 === "string") next.act4 = o.act4;
+    if (typeof o.subplots === "string") next.subplots = o.subplots;
+    if (Object.keys(next).length) outlineDetail = next;
+  }
 
   return {
     premise,
     characters,
     outline: typeof input.outline === "string" ? input.outline : "",
+    ...(outlineDetail ? { outlineDetail } : {}),
     chapterOutlines,
     updatedAt:
       typeof input.updatedAt === "number" && Number.isFinite(input.updatedAt)
