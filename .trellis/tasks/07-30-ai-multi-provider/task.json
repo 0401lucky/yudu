@@ -1,0 +1,29 @@
+{
+  "id": "ai-multi-provider",
+  "name": "ai-multi-provider",
+  "title": "多提供商与多协议 AI 配置",
+  "description": "父任务：AiSettings 从单配置改为多提供商列表，设置页二级面板，并支持 OpenAI/Gemini/Anthropic 三种协议",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "0401lucky",
+  "assignee": "0401lucky",
+  "createdAt": "2026-07-30",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "feat/yudu-reader",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "07-30-ai-provider-store",
+    "07-30-ai-protocol-adapters"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
