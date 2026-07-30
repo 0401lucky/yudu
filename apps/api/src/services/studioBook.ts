@@ -95,10 +95,14 @@ function normalizeAssets(input: Partial<StudioAssets> | null | undefined): Studi
   const premise: StudioPremise = {};
   if (input.premise && typeof input.premise === "object") {
     const p = input.premise;
+    if (typeof p.idea === "string") premise.idea = p.idea;
     if (typeof p.genre === "string") premise.genre = p.genre;
     if (typeof p.tone === "string") premise.tone = p.tone;
     if (typeof p.targetLength === "string") premise.targetLength = p.targetLength;
+    if (typeof p.logline === "string") premise.logline = p.logline;
     if (typeof p.notes === "string") premise.notes = p.notes;
+    if (typeof p.autoChapterCount === "boolean")
+      premise.autoChapterCount = p.autoChapterCount;
   }
 
   const characters: StudioCharacter[] = Array.isArray(input.characters)

@@ -55,10 +55,20 @@ export interface BookDetail {
 
 /** 创作台立项补充信息 */
 export interface StudioPremise {
+  /** 用户口述的故事想法，AI 立项的主输入 */
+  idea?: string;
+  /** 题材大类；多选值以「｜」拼接，如「穿书｜古言」 */
   genre?: string;
+  /** 整体情绪基调；多选值以「｜」拼接 */
   tone?: string;
+  /** 目标篇幅；单值 */
   targetLength?: string;
+  /** 一句话卖点，AI 立项产出 */
+  logline?: string;
+  /** 额外硬性要求（UI 文案为「额外要求」，字段名沿用历史） */
   notes?: string;
+  /** 细纲生成时让 AI 自行决定章数；缺省视为 true */
+  autoChapterCount?: boolean;
 }
 
 /** 创作台人设卡片 */

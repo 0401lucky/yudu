@@ -10,6 +10,8 @@
 
 `books` 创作台扩展列（0007）：`source`（`import`|`studio`）、`on_shelf`、`break_limit`、`studio_assets`（JSON 文本）。书架列表仅返回 `on_shelf=1`；导入书默认上架。
 
+> ⚠️ `studio_assets` 走 `normalizeAssets`（`services/studioBook.ts`）逐字段 `typeof` 白名单，**未列出的字段会被静默丢弃**。给 `StudioPremise` / `StudioCharacter` 等加字段时，必须同步补白名单，否则前端能填能发、存进去就没了，且不报错。这类字段是 JSON 内的，无需 D1 迁移。
+
 ### 约定
 
 | 规则 | 说明 |

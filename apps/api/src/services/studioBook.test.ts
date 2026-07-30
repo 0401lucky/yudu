@@ -52,6 +52,39 @@ describe("studioBook assets", () => {
       }),
     ).toThrow(/细纲/);
   });
+
+  it("立项保留 idea / logline / autoChapterCount", () => {
+    const a = validateAndNormalizeAssets({
+      premise: {
+        idea: "女主穿越成反派他妈",
+        genre: "穿书｜古言",
+        tone: "轻松搞笑",
+        targetLength: "中篇（约 30 万字）",
+        logline: "她只想苟活，儿子却要造反",
+        notes: "主角必须叫林晚",
+        autoChapterCount: false,
+      },
+      characters: [],
+      outline: "",
+      chapterOutlines: [],
+      updatedAt: 0,
+    });
+    expect(a.premise.idea).toBe("女主穿越成反派他妈");
+    expect(a.premise.genre).toBe("穿书｜古言");
+    expect(a.premise.logline).toBe("她只想苟活，儿子却要造反");
+    expect(a.premise.autoChapterCount).toBe(false);
+  });
+
+  it("autoChapterCount 非布尔时丢弃", () => {
+    const a = validateAndNormalizeAssets({
+      premise: { autoChapterCount: "yes" as unknown as boolean },
+      characters: [],
+      outline: "",
+      chapterOutlines: [],
+      updatedAt: 0,
+    });
+    expect(a.premise.autoChapterCount).toBeUndefined();
+  });
 });
 
 /** 最小 mock D1，仅覆盖 patchStudioBook / getStudioBookDetail 用到的 SQL 分支 */

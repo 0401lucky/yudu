@@ -1,5 +1,6 @@
-import type { StudioAssets, StudioChapterOutline, StudioCharacter } from "@yudu/shared";
+import type { StudioAssets, StudioChapterOutline, StudioCharacter, StudioPremise } from "@yudu/shared";
 import type { ChatMessage } from "./aiClient";
+import { GENRE_PRESETS, LENGTH_PRESETS, TONE_PRESETS } from "./studioPresets";
 
 /**
  * 硬边界：全模式通用。
@@ -116,13 +117,143 @@ function formatCharacters(chars: StudioCharacter[]): string {
 function formatPremise(assets: StudioAssets): string {
   const p = assets.premise ?? {};
   return [
+    p.idea ? `故事想法：${p.idea}` : null,
+    p.logline ? `一句话：${p.logline}` : null,
     p.genre ? `类型：${p.genre}` : null,
     p.tone ? `基调：${p.tone}` : null,
     p.targetLength ? `目标篇幅：${p.targetLength}` : null,
-    p.notes ? `备注：${p.notes}` : null,
+    p.notes ? `额外要求：${p.notes}` : null,
   ]
     .filter(Boolean)
     .join("\n") || "（无额外立项说明）";
+}
+
+/** AI 立项方案的解析结果；缺失的字段留空，由调用方决定是否覆盖原值 */
+export interface ParsedPremise {
+  titles: string[];
+  genre?: string;
+  tone?: string;
+  targetLength?: string;
+  logline?: string;
+}
+
+/** 立项输出的固定格式样例，同时给 AI 看和给解析器对齐 */
+const PREMISE_FORMAT_SAMPLE = [
+  "书名：满级反派他妈｜我儿是天煞孤星｜慈母多败儿",
+  "类型：穿书｜古言",
+  "基调：轻松搞笑｜甜宠",
+  "篇幅：中篇（约 30 万字）",
+  "卖点：她只想苟活，儿子却要造反。",
+].join("\n");
+
+const TITLE_RULES = [
+  "书名要求：中文网文风格，3 个风格各异（一个直白爽感、一个带悬念、一个有反差），",
+  "每个不超过 12 字，不带书名号，不加解释。",
+].join("");
+
+export function buildPremiseMessages(
+  breakLimit: boolean,
+  idea: string,
+): ChatMessage[] {
+  const trimmed = idea.trim();
+  return [
+    { role: "system", content: baseSystem(breakLimit) },
+    {
+      role: "user",
+      content: withUserPin(breakLimit, [
+        "为一部新小说做立项：给出书名候选、类型、基调、目标篇幅和一句话卖点。",
+        trimmed
+          ? `用户想看的故事：${trimmed}`
+          : "用户没有给具体想法，请自己定一个有意思、有市场的选题。",
+        `类型可从这些里挑（也可用表外的词）：${GENRE_PRESETS.join("、")}`,
+        `基调可从这些里挑（也可用表外的词）：${TONE_PRESETS.join("、")}`,
+        `篇幅从这三个里挑一个：${LENGTH_PRESETS.join("、")}`,
+        "类型和基调各可给 1～3 个，用「｜」分隔。",
+        TITLE_RULES,
+        "严格按下面 5 行输出，不要前言、不要 markdown、不要多余说明：",
+        PREMISE_FORMAT_SAMPLE,
+      ]),
+    },
+  ];
+}
+
+export function buildTitlesMessages(
+  breakLimit: boolean,
+  idea: string,
+  premise: StudioPremise,
+): ChatMessage[] {
+  const context = [
+    idea.trim() ? `故事想法：${idea.trim()}` : null,
+    premise.genre ? `类型：${premise.genre}` : null,
+    premise.tone ? `基调：${premise.tone}` : null,
+    premise.logline ? `一句话：${premise.logline}` : null,
+  ].filter((x): x is string => x != null);
+
+  return [
+    { role: "system", content: baseSystem(breakLimit) },
+    {
+      role: "user",
+      content: withUserPin(breakLimit, [
+        "只做一件事：为下面这部小说想 3 个书名。",
+        ...(context.length ? context : ["（暂无设定，自由发挥一个好选题的书名）"]),
+        TITLE_RULES,
+        "只输出一行，格式：",
+        "书名：名字一｜名字二｜名字三",
+      ]),
+    },
+  ];
+}
+
+/** 逐行扫描立项输出，抽出「字段名：值」；同名字段取第一次出现 */
+function scanPremiseFields(text: string): Map<string, string> {
+  const out = new Map<string, string>();
+  const re =
+    /^(书名|类型|基调|篇幅|目标篇幅|卖点|一句话)\s*[：:]\s*(.+)$/;
+  for (const raw of text.split(/\r?\n/)) {
+    // 剥掉 markdown 列表符号、加粗星号与首尾空白
+    const line = raw.replace(/[*_`]/g, "").replace(/^[\s\-–—•]+/, "").trim();
+    const m = re.exec(line);
+    if (!m) continue;
+    const key = m[1] === "目标篇幅" ? "篇幅" : m[1] === "一句话" ? "卖点" : m[1]!;
+    if (!out.has(key)) out.set(key, m[2]!.trim());
+  }
+  return out;
+}
+
+/** 切分「｜」分隔的多值，顺带去掉书名号与空项 */
+function splitTags(value: string): string[] {
+  return value
+    .split(/[｜|、,，\/]/)
+    .map((s) => s.replace(/[《》「」“”"']/g, "").trim())
+    .filter(Boolean);
+}
+
+export function parsePremiseFromAi(text: string): ParsedPremise {
+  const fields = scanPremiseFields(text);
+  const titleLine = fields.get("书名");
+  const genre = fields.get("类型");
+  const tone = fields.get("基调");
+
+  return {
+    titles: titleLine ? splitTags(titleLine).slice(0, 3) : [],
+    genre: genre ? splitTags(genre).join("｜") || undefined : undefined,
+    tone: tone ? splitTags(tone).join("｜") || undefined : undefined,
+    targetLength: fields.get("篇幅") || undefined,
+    logline: fields.get("卖点") || undefined,
+  };
+}
+
+export function parseTitlesFromAi(text: string): string[] {
+  const withKey = parsePremiseFromAi(text).titles;
+  if (withKey.length) return withKey;
+  // 退化：模型直接甩了几行裸书名
+  return text
+    .split(/\r?\n/)
+    .flatMap((raw) =>
+      splitTags(raw.replace(/[*_`]/g, "").replace(/^[\s\-–—•\d.、)]+/, "")),
+    )
+    .filter((s) => s.length <= 20)
+    .slice(0, 3);
 }
 
 export function buildCharactersMessages(

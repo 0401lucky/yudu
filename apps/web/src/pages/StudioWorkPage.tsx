@@ -4,10 +4,12 @@ import type {
   StudioBookDetail,
   StudioCharacter,
   StudioChapterOutline,
+  StudioPremise,
 } from "@yudu/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import StudioModelPicker from "../components/StudioModelPicker";
+import StudioPremisePanel from "../components/StudioPremisePanel";
 import {
   ApiError,
   getChapter,
@@ -28,8 +30,12 @@ import {
   buildChapterOutlinesMessages,
   buildCharactersMessages,
   buildOutlineMessages,
+  buildPremiseMessages,
+  buildTitlesMessages,
   parseChapterOutlinesFromAi,
   parseCharactersFromAi,
+  parsePremiseFromAi,
+  parseTitlesFromAi,
 } from "../lib/studioPrompts";
 
 type StepId = "premise" | "characters" | "outline" | "chapters" | "body";
@@ -57,11 +63,9 @@ export default function StudioWorkPage() {
   // 立项本地草稿
   const [title, setTitle] = useState("");
   const [breakLimit, setBreakLimit] = useState(false);
-  const [genre, setGenre] = useState("");
-  const [tone, setTone] = useState("");
-  const [targetLength, setTargetLength] = useState("");
-  const [notes, setNotes] = useState("");
-  const [autoChapterCount, setAutoChapterCount] = useState(true);
+  const [premiseDraft, setPremiseDraft] = useState<StudioPremise>({});
+  /** AI 产出的书名候选，一次性结果，不持久化 */
+  const [titleCandidates, setTitleCandidates] = useState<string[]>([]);
 
   // 正文编辑
   const [activeChapter, setActiveChapter] = useState(0);
@@ -76,10 +80,7 @@ export default function StudioWorkPage() {
     setAssets(d.assets);
     setTitle(d.title);
     setBreakLimit(d.breakLimit);
-    setGenre(d.assets.premise.genre ?? "");
-    setTone(d.assets.premise.tone ?? "");
-    setTargetLength(d.assets.premise.targetLength ?? "");
-    setNotes(d.assets.premise.notes ?? "");
+    setPremiseDraft(d.assets.premise);
   }, [bookId]);
 
   useEffect(() => {
@@ -156,6 +157,12 @@ export default function StudioWorkPage() {
     return true;
   }
 
+  /** 空串一律存 undefined，保持与旧数据同构 */
+  function trimmedOrUndefined(v: string | undefined): string | undefined {
+    const t = v?.trim();
+    return t ? t : undefined;
+  }
+
   async function savePremise() {
     if (!bookId || !assets) return;
     if (breakLimit && !confirmBreakLimitIfNeeded(true)) {
@@ -169,10 +176,13 @@ export default function StudioWorkPage() {
       const next: StudioAssets = {
         ...assets,
         premise: {
-          genre: genre.trim() || undefined,
-          tone: tone.trim() || undefined,
-          targetLength: targetLength.trim() || undefined,
-          notes: notes.trim() || undefined,
+          idea: trimmedOrUndefined(premiseDraft.idea),
+          genre: trimmedOrUndefined(premiseDraft.genre),
+          tone: trimmedOrUndefined(premiseDraft.tone),
+          targetLength: trimmedOrUndefined(premiseDraft.targetLength),
+          logline: trimmedOrUndefined(premiseDraft.logline),
+          notes: trimmedOrUndefined(premiseDraft.notes),
+          autoChapterCount: premiseDraft.autoChapterCount ?? true,
         },
         updatedAt: Date.now(),
       };
@@ -239,6 +249,58 @@ export default function StudioWorkPage() {
     }
   }
 
+  /**
+   * AI 一次生成整套立项方案。
+   * 只在流式结束后一次性回填（半截文本解析出的字段会闪烁），
+   * 且逐项「有值才覆盖」，解析全空时不动用户已填的内容。
+   */
+  async function genPremise() {
+    await runStream(
+      () => buildPremiseMessages(breakLimit, premiseDraft.idea ?? ""),
+      (text) => {
+        const p = parsePremiseFromAi(text);
+        const empty =
+          !p.titles.length &&
+          !p.genre &&
+          !p.tone &&
+          !p.targetLength &&
+          !p.logline;
+        if (empty) {
+          setError("未能解析立项方案，请重试或手动填写");
+          return;
+        }
+        if (p.titles.length) {
+          setTitle(p.titles[0]!);
+          setTitleCandidates(p.titles);
+        }
+        setPremiseDraft((prev) => ({
+          ...prev,
+          ...(p.genre ? { genre: p.genre } : {}),
+          ...(p.tone ? { tone: p.tone } : {}),
+          ...(p.targetLength ? { targetLength: p.targetLength } : {}),
+          ...(p.logline ? { logline: p.logline } : {}),
+        }));
+        setStatus("立项方案已填入，确认后点「保存立项」");
+      },
+    );
+  }
+
+  /** 只重新生成书名候选，不动其它字段 */
+  async function genTitles() {
+    await runStream(
+      () => buildTitlesMessages(breakLimit, premiseDraft.idea ?? "", premiseDraft),
+      (text) => {
+        const titles = parseTitlesFromAi(text);
+        if (!titles.length) {
+          setError("未能解析书名，请重试");
+          return;
+        }
+        setTitle(titles[0]!);
+        setTitleCandidates(titles);
+      },
+    );
+  }
+
   async function genCharacters() {
     if (!assets || !detail) return;
     await runStream(
@@ -286,7 +348,7 @@ export default function StudioWorkPage() {
           title || detail.title,
           assets,
           10,
-          autoChapterCount,
+          assets.premise.autoChapterCount ?? true,
         ),
       async (text) => {
         const parsed = parseChapterOutlinesFromAi(text);
@@ -556,76 +618,27 @@ export default function StudioWorkPage() {
         ) : null}
 
         {step === "premise" ? (
-          <div className="space-y-4 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5">
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="text-[var(--text-muted)]">书名</span>
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[var(--text)]"
-              />
-            </label>
-            <label className="flex items-start gap-3 text-sm">
-              <input
-                type="checkbox"
-                className="mt-1"
-                checked={breakLimit}
-                onChange={(e) => {
-                  const v = e.target.checked;
-                  if (v && !confirmBreakLimitIfNeeded(true)) return;
-                  setBreakLimit(v);
-                }}
-              />
-              <span>
-                <span className="text-[var(--text)]">破限模式（18+）</span>
-                <span className="mt-1 block text-[var(--text-muted)]">
-                  内置 Gemini 向破限提示：可写露骨成人向虚构，默认细腻文风（避免粗口暴躁流）；禁止未成年人相关。仍依赖你自选的模型。
-                </span>
-              </span>
-            </label>
-            <div className="grid gap-3 md:grid-cols-2">
-              <Field label="类型" value={genre} onChange={setGenre} />
-              <Field label="基调" value={tone} onChange={setTone} />
-              <Field
-                label="目标篇幅"
-                value={targetLength}
-                onChange={setTargetLength}
-              />
-            </div>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="text-[var(--text-muted)]">备注</span>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={4}
-                className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[var(--text)]"
-              />
-            </label>
-
-            <label className="flex items-start gap-3 text-sm">
-              <input
-                type="checkbox"
-                className="mt-1"
-                checked={autoChapterCount}
-                onChange={(e) => setAutoChapterCount(e.target.checked)}
-              />
-              <span>
-                <span className="text-[var(--text)]">让 AI 自行决定分章数</span>
-                <span className="mt-1 block text-[var(--text-muted)]">
-                  开启后，细纲生成时 AI 会自行决定合理章数；关闭则固定 10 章。
-                </span>
-              </span>
-            </label>
-
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void savePremise()}
-              className="rounded-lg bg-[var(--accent)] px-4 py-2 text-[var(--bg)] disabled:opacity-60"
-            >
-              {saving ? "保存中…" : "保存立项"}
-            </button>
-          </div>
+          <StudioPremisePanel
+            title={title}
+            breakLimit={breakLimit}
+            premise={premiseDraft}
+            titleCandidates={titleCandidates}
+            saving={saving}
+            generating={generating}
+            onTitleChange={setTitle}
+            onBreakLimitChange={(v) => {
+              if (v && !confirmBreakLimitIfNeeded(true)) return false;
+              setBreakLimit(v);
+              return true;
+            }}
+            onPremiseChange={(patch) =>
+              setPremiseDraft((prev) => ({ ...prev, ...patch }))
+            }
+            onAiPremise={() => void genPremise()}
+            onAiTitles={() => void genTitles()}
+            onStop={() => abortRef.current?.abort()}
+            onSave={() => void savePremise()}
+          />
         ) : null}
 
         {step === "characters" ? (
@@ -763,7 +776,7 @@ export default function StudioWorkPage() {
               >
                 {generating
                   ? "生成中…"
-                  : autoChapterCount
+                  : (assets.premise.autoChapterCount ?? true)
                     ? "AI 生成细纲（自动章数）"
                     : "AI 生成细纲（10 章）"}
               </button>
@@ -925,27 +938,6 @@ export default function StudioWorkPage() {
         ) : null}
       </section>
     </main>
-  );
-}
-
-function Field({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <label className="flex flex-col gap-1 text-sm">
-      <span className="text-[var(--text-muted)]">{label}</span>
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[var(--text)]"
-      />
-    </label>
   );
 }
 
