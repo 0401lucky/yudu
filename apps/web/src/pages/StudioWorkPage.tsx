@@ -24,7 +24,6 @@ import {
 } from "../lib/api";
 import { AiClientError, streamChatCompletion } from "../lib/aiClient";
 import {
-  AI_PROTOCOL_LABELS,
   isAdultConfirmed,
   loadAiSettings,
   resolveProvider,
@@ -156,12 +155,6 @@ export default function StudioWorkPage() {
     );
     if (!resolved) {
       setError("请先在「设置」添加 AI 提供商，并在上方选择本书模型");
-      return null;
-    }
-    if (resolved.provider.protocol !== "openai") {
-      setError(
-        `「${resolved.provider.name}」的 ${AI_PROTOCOL_LABELS[resolved.provider.protocol]} 协议将在下一阶段支持，请暂时改用 OpenAI 兼容的提供商`,
-      );
       return null;
     }
     return resolved;

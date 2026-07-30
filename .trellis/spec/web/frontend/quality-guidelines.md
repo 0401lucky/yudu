@@ -45,6 +45,26 @@
 - **书级绑定是 `providerId` + `model` 两列**（D1 `studio_provider_id` / `studio_model`），与前端的一对默认字段同构，两者必须同时落库。解析统一走 `resolveProvider(settings, bookProviderId?, bookModel?)`：书未绑定或绑定的提供商已删除时回退全局默认，拿不到就返回 `null` 让调用方提示。
 - 新协议只在 `aiClient.ts` 内分发，`listAiModels` / `streamChatCompletion` 的签名接收 `AiProvider` 而非整个 settings，加协议不改调用方。
 
+### 三种协议的差异（`lib/aiClient.ts`）
+
+对外只有两个函数，内部按 `provider.protocol` 分发。加新协议时改这四处：`protocolHeaders`、请求 URL/body 分支、`extractDelta`、模型列表解析。
+
+| | OpenAI 兼容 | Gemini 原生 | Anthropic Messages |
+|---|---|---|---|
+| 鉴权 | `Authorization: Bearer` | `x-goog-api-key` | `x-api-key` + `anthropic-version` |
+| 模型列表 | `/v1/models`，取 `data[].id` | `/v1beta/models`，取 `models[].name` 去 `models/` 前缀，按 `supportedGenerationMethods` 滤掉 embedding | `/v1/models`，同 OpenAI |
+| 流式端点 | `/v1/chat/completions` | `/v1beta/models/{model}:streamGenerateContent?alt=sse` | `/v1/messages` |
+| system | 留在 `messages` 里 | 提到 `systemInstruction` | 提到顶层 `system` |
+| 增量字段 | `choices[0].delta.content` | `candidates[0].content.parts[].text` | `content_block_delta` 的 `delta.text` |
+
+踩过的坑：
+
+- Gemini 不带 `alt=sse` 会返回一整个 JSON 数组而非逐包 SSE，前端会一直等到结束才出字。
+- Anthropic 浏览器直连必须带 `anthropic-dangerous-direct-browser-access: true`，否则直接被拒；且 `max_tokens` 是必填项（`ANTHROPIC_MAX_TOKENS`）。
+- Gemini 的 `safetySettings` 四类全设 `BLOCK_NONE`：默认阈值会把长篇小说里正常的冲突/暴力情节判为拦截。尺度由提示词侧的破限模式控制，不在传输层做二次限制。
+- 被安全策略拦截时 `candidates[0]` 没有 `content` 字段，`extractDelta` 必须容忍缺字段而不是抛错。
+- Gemini / Anthropic 的地址是固定的，`baseUrl` 留空即回落 `PROTOCOL_DEFAULT_BASE_URLS`；因此「凭证是否齐全」要走 `hasCredentials()`，只有 OpenAI 兼容才强制要求填地址。
+
 ## 依赖纪律
 
 当前 runtime 依赖仅：`react`、`react-dom`、`react-router-dom`、`@yudu/shared`。

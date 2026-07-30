@@ -44,7 +44,7 @@ function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl
     .trim()
     .replace(/\/+$/, "")
-    .replace(/\/v1$/i, "");
+    .replace(/\/v1(beta)?$/i, "");
 }
 
 function sortModels(models: string[]): string[] {
@@ -240,6 +240,14 @@ export function setProviderModels(
   );
 }
 
+/** OpenAI 兼容中转必须自填地址；Gemini / Anthropic 留空时走各自官方地址 */
+export function hasCredentials(p: AiProvider): boolean {
+  return (
+    Boolean(p.apiKey.trim()) &&
+    (p.protocol !== "openai" || Boolean(p.baseUrl.trim()))
+  );
+}
+
 /**
  * 解析某本书实际要用的提供商与模型。
  * 书未绑定、或绑定的提供商已被删除时回退到全局默认；无法解析返回 null。
@@ -254,7 +262,7 @@ export function resolveProvider(
     : undefined;
   const provider =
     byBook ?? settings.providers.find((p) => p.id === settings.defaultProviderId);
-  if (!provider || !provider.baseUrl || !provider.apiKey) return null;
+  if (!provider || !hasCredentials(provider)) return null;
 
   // 绑定命中才用书的模型；回退到默认提供商时用默认模型
   const model = (byBook ? bookModel : undefined)?.trim() || settings.defaultModel?.trim();

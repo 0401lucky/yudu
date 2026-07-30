@@ -2,6 +2,7 @@ import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, u
 import { Link } from "react-router-dom";
 import { AiClientError, listAiModels } from "../lib/aiClient";
 import {
+  hasCredentials,
   loadAiSettings,
   resolveProvider,
   setDefaultModel,
@@ -108,12 +109,10 @@ export default function StudioModelPicker({
     setErr(null);
   }
 
-  /** 刷新所有已填凭证的 OpenAI 协议提供商；逐个写回，互不覆盖 */
+  /** 刷新所有已填凭证的提供商；逐个写回，互不覆盖 */
   async function refresh() {
     setErr(null);
-    const targets = loadAiSettings().providers.filter(
-      (p) => p.protocol === "openai" && p.baseUrl && p.apiKey,
-    );
+    const targets = loadAiSettings().providers.filter(hasCredentials);
     if (!targets.length) {
       setErr("请先在设置中填写提供商的地址与密钥");
       return;

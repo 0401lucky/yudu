@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { AiClientError, listAiModels } from "../lib/aiClient";
+import { AiClientError, listAiModels, PROTOCOL_DEFAULT_BASE_URLS } from "../lib/aiClient";
 import {
   AI_PROTOCOL_LABELS,
   addProvider,
+  hasCredentials,
   loadAiSettings,
   removeProvider,
   setDefaultModel,
@@ -102,14 +103,12 @@ export default function AiProviderSettings() {
   async function onFetchModels(draft: AiProvider) {
     setError(null);
     setHint(null);
-    if (draft.protocol !== "openai") {
+    if (!hasCredentials(draft)) {
       setError(
-        `${AI_PROTOCOL_LABELS[draft.protocol]} 协议将在下一阶段支持，暂时无法获取模型列表`,
+        draft.protocol === "openai"
+          ? "请先填写 API 地址与密钥"
+          : "请先填写 API 密钥",
       );
-      return;
-    }
-    if (!draft.baseUrl.trim() || !draft.apiKey.trim()) {
-      setError("请先填写 API 地址与密钥");
       return;
     }
     setFetching(true);
@@ -313,18 +312,23 @@ function ProviderForm({
           {PROTOCOLS.map((p) => (
             <option key={p} value={p}>
               {AI_PROTOCOL_LABELS[p]}
-              {p === "openai" ? "" : "（下一阶段支持）"}
             </option>
           ))}
         </select>
       </label>
 
       <label className="flex flex-col gap-1 text-sm">
-        <span className="text-[var(--text-muted)]">API Base URL</span>
+        <span className="text-[var(--text-muted)]">
+          API Base URL
+          {draft.protocol === "openai" ? "" : "（留空用官方地址）"}
+        </span>
         <input
           value={draft.baseUrl}
           onChange={(e) => onPatch({ baseUrl: e.target.value })}
-          placeholder="https://your-new-api.example.com"
+          placeholder={
+            PROTOCOL_DEFAULT_BASE_URLS[draft.protocol] ||
+            "https://your-new-api.example.com"
+          }
           className={inputClass}
           autoComplete="off"
         />
