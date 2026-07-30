@@ -75,8 +75,26 @@ export interface StudioPremise {
 export interface StudioCharacter {
   id: string;
   name: string;
+  /** 故事定位：主角 / 反派 / 导师… */
   role: string;
+  /** 旧版单段描述；历史数据在此，新生成不再写入 */
   description: string;
+  /** 年龄、社会身份、职业出身 */
+  ageIdentity?: string;
+  /** 外貌与第一印象 */
+  appearance?: string;
+  /** 性格底色与矛盾面 */
+  personality?: string;
+  /** 出场前的关键经历 */
+  background?: string;
+  /** 想要什么、为什么、愿意付出什么 */
+  motivation?: string;
+  /** 弱点、怕什么、会在哪里失控 */
+  flaw?: string;
+  /** 语气、口头禅、话多话少 */
+  speech?: string;
+  /** 与其他角色的关系与张力 */
+  relations?: string;
 }
 
 /** 分章细纲一条 */

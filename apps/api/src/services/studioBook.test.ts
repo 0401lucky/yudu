@@ -85,6 +85,64 @@ describe("studioBook assets", () => {
     });
     expect(a.premise.autoChapterCount).toBeUndefined();
   });
+
+  it("角色卡保留 8 个结构化维度", () => {
+    const a = validateAndNormalizeAssets({
+      premise: {},
+      characters: [
+        {
+          id: "1",
+          name: "林晚",
+          role: "主角",
+          description: "",
+          ageIdentity: "32 岁，侯府主母",
+          appearance: "眼尾一道旧痕",
+          personality: "外冷内热",
+          background: "穿书前是急诊科护士",
+          motivation: "只想活到儿子成年",
+          flaw: "见血就手抖",
+          speech: "话少，爱用短句",
+          relations: "与沈篁是母子，互相提防",
+        },
+      ],
+      outline: "",
+      chapterOutlines: [],
+      updatedAt: 0,
+    });
+    const c = a.characters[0]!;
+    expect(c.ageIdentity).toBe("32 岁，侯府主母");
+    expect(c.appearance).toBe("眼尾一道旧痕");
+    expect(c.personality).toBe("外冷内热");
+    expect(c.background).toBe("穿书前是急诊科护士");
+    expect(c.motivation).toBe("只想活到儿子成年");
+    expect(c.flaw).toBe("见血就手抖");
+    expect(c.speech).toBe("话少，爱用短句");
+    expect(c.relations).toBe("与沈篁是母子，互相提防");
+  });
+
+  it("角色卡新字段非字符串时丢弃，基础字段仍归一化", () => {
+    const a = validateAndNormalizeAssets({
+      premise: {},
+      characters: [
+        {
+          id: "1",
+          name: "林晚",
+          role: "主角",
+          description: "旧描述",
+          motivation: 123 as unknown as string,
+          flaw: null as unknown as string,
+        },
+      ],
+      outline: "",
+      chapterOutlines: [],
+      updatedAt: 0,
+    });
+    const c = a.characters[0]!;
+    expect(c.name).toBe("林晚");
+    expect(c.description).toBe("旧描述");
+    expect(c.motivation).toBeUndefined();
+    expect(c.flaw).toBeUndefined();
+  });
 });
 
 /** 最小 mock D1，仅覆盖 patchStudioBook / getStudioBookDetail 用到的 SQL 分支 */

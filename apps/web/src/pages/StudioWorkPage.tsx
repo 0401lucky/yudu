@@ -9,6 +9,7 @@ import type {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import StudioModelPicker from "../components/StudioModelPicker";
+import StudioCharacterPanel from "../components/StudioCharacterPanel";
 import StudioPremisePanel from "../components/StudioPremisePanel";
 import {
   ApiError,
@@ -66,6 +67,8 @@ export default function StudioWorkPage() {
   const [premiseDraft, setPremiseDraft] = useState<StudioPremise>({});
   /** AI 产出的书名候选，一次性结果，不持久化 */
   const [titleCandidates, setTitleCandidates] = useState<string[]>([]);
+  /** 刚手动新增的角色 id，用于让该卡默认展开 */
+  const [newCharacterId, setNewCharacterId] = useState<string | null>(null);
 
   // 正文编辑
   const [activeChapter, setActiveChapter] = useState(0);
@@ -456,17 +459,33 @@ export default function StudioWorkPage() {
 
   function addCharacter() {
     if (!assets) return;
+    const id = crypto.randomUUID();
+    setNewCharacterId(id);
     setAssets({
       ...assets,
       characters: [
         ...assets.characters,
         {
-          id: crypto.randomUUID(),
+          id,
           name: "",
           role: "",
           description: "",
         },
       ],
+    });
+  }
+
+  function removeCharacter(i: number) {
+    if (!assets) return;
+    const target = assets.characters[i];
+    if (!target) return;
+    const ok = window.confirm(
+      `删除角色「${target.name || "未命名角色"}」？记得随后点「保存人设」。`,
+    );
+    if (!ok) return;
+    setAssets({
+      ...assets,
+      characters: assets.characters.filter((_, idx) => idx !== i),
     });
   }
 
@@ -642,80 +661,18 @@ export default function StudioWorkPage() {
         ) : null}
 
         {step === "characters" ? (
-          <div className="space-y-4 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5">
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={generating}
-                onClick={() => void genCharacters()}
-                className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm text-[var(--bg)] disabled:opacity-60"
-              >
-                {generating ? "生成中…" : "AI 生成人设"}
-              </button>
-              <button
-                type="button"
-                onClick={addCharacter}
-                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm"
-              >
-                添加角色
-              </button>
-              <button
-                type="button"
-                disabled={saving || generating}
-                onClick={() => void saveAssets(assets)}
-                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm disabled:opacity-60"
-              >
-                保存人设
-              </button>
-              {generating ? (
-                <button
-                  type="button"
-                  onClick={() => abortRef.current?.abort()}
-                  className="rounded-lg border border-red-500/40 px-3 py-1.5 text-sm text-red-300"
-                >
-                  停止
-                </button>
-              ) : null}
-            </div>
-            {assets.characters.length === 0 ? (
-              <p className="text-sm text-[var(--text-muted)]">暂无人设</p>
-            ) : (
-              <ul className="space-y-3">
-                {assets.characters.map((c, i) => (
-                  <li
-                    key={c.id}
-                    className="grid gap-2 rounded-lg border border-[var(--border)] p-3 md:grid-cols-3"
-                  >
-                    <input
-                      placeholder="姓名"
-                      value={c.name}
-                      onChange={(e) =>
-                        updateCharacter(i, { name: e.target.value })
-                      }
-                      className="rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 text-sm"
-                    />
-                    <input
-                      placeholder="身份"
-                      value={c.role}
-                      onChange={(e) =>
-                        updateCharacter(i, { role: e.target.value })
-                      }
-                      className="rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 text-sm"
-                    />
-                    <textarea
-                      placeholder="描述"
-                      value={c.description}
-                      onChange={(e) =>
-                        updateCharacter(i, { description: e.target.value })
-                      }
-                      rows={2}
-                      className="rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 text-sm md:col-span-3"
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          <StudioCharacterPanel
+            characters={assets.characters}
+            newlyAddedId={newCharacterId}
+            saving={saving}
+            generating={generating}
+            onChange={updateCharacter}
+            onAdd={addCharacter}
+            onRemove={removeCharacter}
+            onGenerate={() => void genCharacters()}
+            onSave={() => void saveAssets(assets)}
+            onStop={() => abortRef.current?.abort()}
+          />
         ) : null}
 
         {step === "outline" ? (

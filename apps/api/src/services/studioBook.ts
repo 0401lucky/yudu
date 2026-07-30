@@ -108,12 +108,24 @@ function normalizeAssets(input: Partial<StudioAssets> | null | undefined): Studi
   const characters: StudioCharacter[] = Array.isArray(input.characters)
     ? input.characters
         .filter((c): c is StudioCharacter => c != null && typeof c === "object")
-        .map((c) => ({
-          id: typeof c.id === "string" && c.id ? c.id : crypto.randomUUID(),
-          name: typeof c.name === "string" ? c.name : "",
-          role: typeof c.role === "string" ? c.role : "",
-          description: typeof c.description === "string" ? c.description : "",
-        }))
+        .map((c) => {
+          const out: StudioCharacter = {
+            id: typeof c.id === "string" && c.id ? c.id : crypto.randomUUID(),
+            name: typeof c.name === "string" ? c.name : "",
+            role: typeof c.role === "string" ? c.role : "",
+            description: typeof c.description === "string" ? c.description : "",
+          };
+          // 结构化角色卡的 8 个维度，逐字段白名单放行
+          if (typeof c.ageIdentity === "string") out.ageIdentity = c.ageIdentity;
+          if (typeof c.appearance === "string") out.appearance = c.appearance;
+          if (typeof c.personality === "string") out.personality = c.personality;
+          if (typeof c.background === "string") out.background = c.background;
+          if (typeof c.motivation === "string") out.motivation = c.motivation;
+          if (typeof c.flaw === "string") out.flaw = c.flaw;
+          if (typeof c.speech === "string") out.speech = c.speech;
+          if (typeof c.relations === "string") out.relations = c.relations;
+          return out;
+        })
     : [];
 
   const chapterOutlines: StudioChapterOutline[] = Array.isArray(

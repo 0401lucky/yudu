@@ -15,6 +15,15 @@
 - 安全区 padding；阅读区 `100dvh`
 - 键盘左右键翻页（`ReaderPage`）；触控区由 Viewport/Chrome 处理
 
+## 创作台 AI 输出解析（`lib/studioPrompts.ts`）
+
+用户自配中转 API，模型能力与听话程度不可控。因此：
+
+- **不用 JSON mode**，用「纯文本 + `字段名：值` 行」约定；行扫描统一走 `scanFields`（会剥掉 markdown 星号与列表符号）。
+- **必须有退化路径**：主解析出 0 条时退回旧格式或更宽松的切分（见 `parseCharactersFromAi` → `parseLegacyCharacters`、`parseTitlesFromAi` 的裸列表兜底）。
+- **解析失败不清空用户数据**：报可读错误并保留原值；多字段结果逐项「有值才覆盖」（见 `genPremise`）。
+- 提示词里的字段名与解析、UI 标签共用一张常量表（`CHARACTER_FIELDS`），避免三处漂移。
+
 ## 依赖纪律
 
 当前 runtime 依赖仅：`react`、`react-dom`、`react-router-dom`、`@yudu/shared`。

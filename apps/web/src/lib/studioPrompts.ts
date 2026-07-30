@@ -107,10 +107,19 @@ function withUserPin(breakLimit: boolean, lines: string[]): string {
 function formatCharacters(chars: StudioCharacter[]): string {
   if (!chars.length) return "（暂无人设，请合理创造并保持前后一致；破限下角色须为成年人）";
   return chars
-    .map(
-      (c, i) =>
-        `${i + 1}. ${c.name || "未命名"}（${c.role || "角色"}）：${c.description || "无描述"}`,
-    )
+    .map((c, i) => {
+      const head = `${i + 1}. ${c.name || "未命名"}｜${c.role || "角色"}`;
+      const dims = CHARACTER_FIELDS.map((f) => {
+        const v = c[f.key];
+        return v ? `   ${f.label}：${v}` : null;
+      }).filter((x): x is string => x != null);
+      // 旧数据只有单段描述
+      if (!dims.length) {
+        return `${head}\n   描述：${c.description || "无描述"}`;
+      }
+      const legacy = c.description ? [`   补充：${c.description}`] : [];
+      return [head, ...dims, ...legacy].join("\n");
+    })
     .join("\n");
 }
 
@@ -205,17 +214,44 @@ export function buildTitlesMessages(
 }
 
 /** 逐行扫描立项输出，抽出「字段名：值」；同名字段取第一次出现 */
-function scanPremiseFields(text: string): Map<string, string> {
+/**
+ * 逐行扫描「字段名：值」；同名字段取第一次出现。
+ * 立项与人设共用：模型爱加 markdown 星号和列表符号，这里统一剥掉。
+ */
+function scanFields(
+  text: string,
+  keys: readonly string[],
+): Map<string, string> {
   const out = new Map<string, string>();
-  const re =
-    /^(书名|类型|基调|篇幅|目标篇幅|卖点|一句话)\s*[：:]\s*(.+)$/;
+  const re = new RegExp(`^(${keys.join("|")})\\s*[：:]\\s*(.+)$`);
   for (const raw of text.split(/\r?\n/)) {
-    // 剥掉 markdown 列表符号、加粗星号与首尾空白
     const line = raw.replace(/[*_`]/g, "").replace(/^[\s\-–—•]+/, "").trim();
     const m = re.exec(line);
     if (!m) continue;
-    const key = m[1] === "目标篇幅" ? "篇幅" : m[1] === "一句话" ? "卖点" : m[1]!;
-    if (!out.has(key)) out.set(key, m[2]!.trim());
+    if (!out.has(m[1]!)) out.set(m[1]!, m[2]!.trim());
+  }
+  return out;
+}
+
+const PREMISE_KEYS = [
+  "书名",
+  "类型",
+  "基调",
+  "目标篇幅",
+  "篇幅",
+  "卖点",
+  "一句话",
+] as const;
+
+function scanPremiseFields(text: string): Map<string, string> {
+  const raw = scanFields(text, PREMISE_KEYS);
+  // 别名归一：目标篇幅→篇幅，一句话→卖点
+  const out = new Map(raw);
+  if (!out.has("篇幅") && raw.has("目标篇幅")) {
+    out.set("篇幅", raw.get("目标篇幅")!);
+  }
+  if (!out.has("卖点") && raw.has("一句话")) {
+    out.set("卖点", raw.get("一句话")!);
   }
   return out;
 }
@@ -256,6 +292,32 @@ export function parseTitlesFromAi(text: string): string[] {
     .slice(0, 3);
 }
 
+/**
+ * 角色卡的 8 个维度。
+ * aiKey 给 AI 与解析器用（短词，模型不易漏写）；label 是界面标签。
+ * 三者集中一处，避免提示词与解析、UI 之间漂移。
+ */
+export const CHARACTER_FIELDS = [
+  { key: "ageIdentity", aiKey: "年龄身份", label: "年龄与身份" },
+  { key: "appearance", aiKey: "外貌", label: "外貌与第一印象" },
+  { key: "personality", aiKey: "性格", label: "性格" },
+  { key: "background", aiKey: "背景", label: "背景经历" },
+  { key: "motivation", aiKey: "动机", label: "动机与目标" },
+  { key: "flaw", aiKey: "软肋", label: "缺陷与软肋" },
+  { key: "speech", aiKey: "口吻", label: "说话方式" },
+  { key: "relations", aiKey: "关系", label: "与其他角色的关系" },
+] as const satisfies readonly {
+  key: keyof StudioCharacter;
+  aiKey: string;
+  label: string;
+}[];
+
+const CHARACTER_KEYS = [
+  "姓名",
+  "定位",
+  ...CHARACTER_FIELDS.map((f) => f.aiKey),
+] as const;
+
 export function buildCharactersMessages(
   breakLimit: boolean,
   title: string,
@@ -266,20 +328,33 @@ export function buildCharactersMessages(
     {
       role: "user",
       content: withUserPin(breakLimit, [
-        `作品《${title}》需要 3～6 个人物卡片。`,
+        `为《${title}》写 3～6 个角色卡。`,
         formatPremise(assets),
+        "写作要求：",
+        "- 每个维度都要具体、可感、能拍出来。禁止「善良勇敢」「聪明伶俐」这类空泛标签，换成一个具体的事、一个习惯动作、一句他会说的话。",
+        "- 角色之间要有差异与张力：目标不能都一致，至少有两个人的诉求彼此冲突。",
+        "- 「软肋」要写出他会在什么情况下失控或让步，这决定后面剧情能怎么逼他。",
+        "- 「口吻」要具体到句长、用词习惯，让读者不看名字也认得出是谁在说话。",
         breakLimit
-          ? "破限：人设可含性张力、癖好、关系中的欲望，但须是成年人；描写有文学性，不要只堆脏话标签。"
-          : "人设注重性格与关系，避免脸谱化暴躁。",
-        "请用纯文本输出，每人一段，格式严格为：",
-        "姓名｜身份/角色｜性格与外貌与关系（一段话）",
-        "不要编号以外的标题或 markdown。",
+          ? "- 破限：可含性张力、癖好、关系中的欲望，但角色必须是成年人；写得有文学性，不要只堆脏话标签。"
+          : "- 注重性格层次与关系，避免脸谱化暴躁。",
+        "",
+        "严格按下面的块格式输出，一个角色一块，块之间空一行；不要 markdown 标题，不要前言：",
+        "",
+        "【角色1】",
+        "姓名：林晚",
+        "定位：主角",
+        ...CHARACTER_FIELDS.map((f) => `${f.aiKey}：…`),
+        "",
+        "【角色2】",
+        "（同上格式）",
       ]),
     },
   ];
 }
 
-export function parseCharactersFromAi(text: string): StudioCharacter[] {
+/** 旧格式退化解析：`姓名｜身份｜描述`，一行一个角色 */
+function parseLegacyCharacters(text: string): StudioCharacter[] {
   const lines = text
     .split(/\r?\n/)
     .map((l) => l.trim())
@@ -305,6 +380,44 @@ export function parseCharactersFromAi(text: string): StudioCharacter[] {
     }
   }
   return out;
+}
+
+/** 把整段输出切成一个角色一块 */
+function splitCharacterBlocks(text: string): string[] {
+  const byMarker = text
+    .split(/【\s*角色\s*\d*\s*】/)
+    .map((b) => b.trim())
+    .filter(Boolean);
+  if (byMarker.length >= 2) return byMarker;
+  // 模型没打【角色N】标记时，退回空行分块
+  const byBlank = text
+    .split(/\r?\n\s*\r?\n/)
+    .map((b) => b.trim())
+    .filter(Boolean);
+  return byBlank.length >= 1 ? byBlank : [];
+}
+
+export function parseCharactersFromAi(text: string): StudioCharacter[] {
+  const out: StudioCharacter[] = [];
+  for (const block of splitCharacterBlocks(text)) {
+    const fields = scanFields(block, CHARACTER_KEYS);
+    const name = fields.get("姓名");
+    const dimensions = CHARACTER_FIELDS.filter((f) => fields.get(f.aiKey));
+    // 有姓名，或至少两个维度命中，才认为是一个角色块
+    if (!name && dimensions.length < 2) continue;
+
+    const character: StudioCharacter = {
+      id: crypto.randomUUID(),
+      name: name || "未命名",
+      role: fields.get("定位") || "角色",
+      description: "",
+    };
+    for (const f of dimensions) {
+      character[f.key] = fields.get(f.aiKey)!;
+    }
+    out.push(character);
+  }
+  return out.length ? out : parseLegacyCharacters(text);
 }
 
 export function buildOutlineMessages(
