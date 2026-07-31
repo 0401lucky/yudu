@@ -7,7 +7,8 @@
 
 - 函数组件 + TypeScript props 接口
 - 视觉：深色「夜」/ 浅色「纸」双主题，强调色琥珀（`--accent`）
-- 颜色优先用 CSS 变量：`text-[var(--text)]`、`border-[var(--border)]`，避免写死仅 night 可用的色值（状态色如红可例外）
+- 颜色优先用 CSS 变量：`text-[var(--text)]`、`border-[var(--border)]`；状态色走 `--danger` / `--warning` 语义变量（**禁止** `red-*` / `amber-*` / `rose-*` 等 Tailwind 色阶硬编码，双主题下不协调且需多处维护）
+- 唯一例外：Canvas 渲染（`quoteCardRender.ts` 的 `CANVAS_*` 与色板）无法解析 CSS 变量，可维护与变量同源的字面量并注释说明
 - 中文 UI 文案；加载态用「加载中…」等简短提示
 
 参考：`BookCard.tsx`、`ReaderChrome.tsx`、`index.css`。
@@ -23,8 +24,17 @@
 | `--accent` | 强调、焦点环 |
 | `--border` | 边框 |
 | `--page-bg` | 阅读版心背景 |
+| `--danger` / `--danger-weak` | 错误/破坏性语义色（weak 为底色，`color-mix 12%`） |
+| `--warning` / `--warning-weak` | 警示语义色 |
+| `--hl-yellow` / `--hl-green` / `--hl-blue` / `--hl-tts` | 高亮三色与 TTS 朗读底色（供 `::highlight` 与 `ColorDot`） |
+| `--overlay` | 遮罩（抽屉/弹窗/toast 统一） |
+| `--motion-fast` / `--motion-base` / `--motion-slow` | 动效时长 150/200/300ms（`:root` 共用） |
+| `--ease-out` | 默认缓动 `cubic-bezier(0.16, 1, 0.3, 1)` |
+| `--font-sans` / `--font-serif` / `--font-mono` | 字体栈（UI / 阅读版心 / 代码） |
 
-主题 id 仅 `night` | `paper`（`ThemeId` in shared）。
+主题 id 仅 `night` | `paper`（`ThemeId` in shared）；语义色在两主题各自独立调色（paper 下 danger 为深砖红、warning 为深琥珀）。
+
+动效约束：只用 `transform` / `opacity`，时长 ≤300ms，尊重 `prefers-reduced-motion`（全局兜底在 `index.css`）。
 
 ## 组件职责示例
 

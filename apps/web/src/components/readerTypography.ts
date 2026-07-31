@@ -27,8 +27,11 @@ export const MEASURE_EM: Record<PageMarginId, number> = {
   relaxed: 42,
 };
 
+/**
+ * 字体栈：serif 引用 index.css 的 --font-serif（单一来源，供 style.fontFamily 消费）；
+ * sans 保留字面量——阅读用 sans 栈（Noto Sans SC 系）与 UI 的 --font-sans（system-ui 系）不同源。
+ */
 export const FONT_STACK: Record<FontFamilyId, string> = {
-  serif:
-    '"Noto Serif SC", "Source Han Serif SC", "Songti SC", "SimSun", serif',
+  serif: "var(--font-serif)",
   sans: '"Noto Sans SC", "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif',
 };

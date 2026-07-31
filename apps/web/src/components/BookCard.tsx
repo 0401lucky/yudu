@@ -70,7 +70,7 @@ export default function BookCard({
 
   return (
     <article
-      className={`group relative flex flex-col rounded-lg border bg-[var(--bg-elevated)] transition-all duration-200 ${
+      className={`group relative flex flex-col rounded-xl border bg-[var(--bg-elevated)] transition-all duration-200 ${
         selectable && selected
           ? "border-[var(--accent)] ring-2 ring-[var(--accent)]"
           : "border-[var(--border)]"

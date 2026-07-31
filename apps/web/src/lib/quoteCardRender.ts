@@ -1,4 +1,3 @@
-import { FONT_STACK } from "../components/readerTypography";
 import type { MeasureFn } from "./quoteCardLayout";
 import { layoutText, QUOTE_MAX_CHARS, truncateToWidth } from "./quoteCardLayout";
 
@@ -44,16 +43,25 @@ const CONTENT_W = WIDTH - PAD_X * 2;
 /** 内描边与画布边缘的间距 */
 const FRAME_INSET = 20;
 
-const QUOTE_MARK_FONT = `96px ${FONT_STACK.serif}`;
-const QUOTE_FONT = `32px ${FONT_STACK.serif}`;
+/**
+ * Canvas 无法解析 CSS var()，此处维护与 index.css 的 --font-serif / 阅读 sans 栈
+ * 同源的字面量栈；若修改字体栈需同步此处（与 PALETTES 同模式的已知双处维护）。
+ */
+const CANVAS_SERIF =
+  '"Noto Serif SC", "Source Han Serif SC", "Songti SC", "SimSun", serif';
+const CANVAS_SANS =
+  '"Noto Sans SC", "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif';
+
+const QUOTE_MARK_FONT = `96px ${CANVAS_SERIF}`;
+const QUOTE_FONT = `32px ${CANVAS_SERIF}`;
 const QUOTE_LINE_H = 54;
-const NOTE_FONT = `24px ${FONT_STACK.sans}`;
+const NOTE_FONT = `24px ${CANVAS_SANS}`;
 const NOTE_LINE_H = 40;
 /** 笔记块左侧竖线 + 缩进（视觉上与摘录区分） */
 const NOTE_INDENT = 24;
-const META_FONT = `24px ${FONT_STACK.sans}`;
-const DATE_FONT = `20px ${FONT_STACK.sans}`;
-const BRAND_FONT = `26px ${FONT_STACK.serif}`;
+const META_FONT = `24px ${CANVAS_SANS}`;
+const DATE_FONT = `20px ${CANVAS_SANS}`;
+const BRAND_FONT = `26px ${CANVAS_SERIF}`;
 
 function formatDate(ts: number): string {
   const d = new Date(ts);
