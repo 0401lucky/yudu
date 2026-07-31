@@ -60,7 +60,7 @@ export default function TocDrawer({
       </div>
 
       {tab === "toc" ? (
-        <ul className="flex-1 overflow-y-auto overscroll-contain py-1 pb-[env(safe-area-inset-bottom)]">
+        <ul className="[content-visibility:auto] flex-1 overflow-y-auto overscroll-contain py-1 pb-[env(safe-area-inset-bottom)]">
           {chapters.map((ch) => {
             const active = ch.index === currentIndex;
             return (
@@ -84,7 +84,7 @@ export default function TocDrawer({
           })}
         </ul>
       ) : tab === "marks" ? (
-        <ul className="flex-1 overflow-y-auto overscroll-contain py-1 pb-[env(safe-area-inset-bottom)]">
+        <ul className="[content-visibility:auto] flex-1 overflow-y-auto overscroll-contain py-1 pb-[env(safe-area-inset-bottom)]">
           {bookmarks.length === 0 ? (
             <li className="px-4 py-8 text-center text-sm text-[var(--text-muted)]">
               还没有书签。阅读时点顶栏书签图标即可添加。
@@ -119,7 +119,7 @@ export default function TocDrawer({
           )}
         </ul>
       ) : (
-        <ul className="flex-1 overflow-y-auto overscroll-contain py-1 pb-[env(safe-area-inset-bottom)]">
+        <ul className="[content-visibility:auto] flex-1 overflow-y-auto overscroll-contain py-1 pb-[env(safe-area-inset-bottom)]">
           {highlights.length === 0 ? (
             <li className="px-4 py-8 text-center text-sm text-[var(--text-muted)]">
               还没有标注。选中正文文字即可添加高亮。

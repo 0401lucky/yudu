@@ -64,7 +64,7 @@ export default function StudioCharacterPanel({
           <button
             type="button"
             onClick={onStop}
-            className="rounded-lg border border-red-500/40 px-3 py-1.5 text-sm text-red-300"
+            className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_40%,transparent)] px-3 py-1.5 text-sm text-[var(--danger)]"
           >
             停止
           </button>
@@ -100,7 +100,7 @@ export default function StudioCharacterPanel({
                       e.stopPropagation();
                       onRemove(i);
                     }}
-                    className="shrink-0 rounded border border-red-500/40 px-2 py-0.5 text-xs text-red-300 transition-colors hover:bg-red-500/10"
+                    className="shrink-0 rounded border border-[color:color-mix(in_srgb,var(--danger)_40%,transparent)] px-2 py-0.5 text-xs text-[var(--danger)] transition-colors hover:bg-[var(--danger-weak)]"
                   >
                     删除
                   </button>
@@ -112,7 +112,7 @@ export default function StudioCharacterPanel({
                       <input
                         value={c.name}
                         onChange={(e) => onChange(i, { name: e.target.value })}
-                        className="rounded border border-[var(--border)] bg-[var(--bg-elevated)] px-2 py-1.5 text-sm"
+                        className="rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-2 py-1.5 text-sm"
                       />
                     </FieldLabel>
                     <FieldLabel label="故事定位">
@@ -120,7 +120,7 @@ export default function StudioCharacterPanel({
                         value={c.role}
                         placeholder="主角 / 反派 / 导师…"
                         onChange={(e) => onChange(i, { role: e.target.value })}
-                        className="rounded border border-[var(--border)] bg-[var(--bg-elevated)] px-2 py-1.5 text-sm"
+                        className="rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-2 py-1.5 text-sm"
                       />
                     </FieldLabel>
                   </div>
@@ -131,7 +131,7 @@ export default function StudioCharacterPanel({
                         value={c[f.key] ?? ""}
                         onChange={(e) => onChange(i, { [f.key]: e.target.value })}
                         rows={FIELD_ROWS[f.key] ?? 3}
-                        className="rounded border border-[var(--border)] bg-[var(--bg-elevated)] px-2 py-1.5 text-sm leading-relaxed"
+                        className="rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-2 py-1.5 text-sm leading-relaxed"
                       />
                     </FieldLabel>
                   ))}
@@ -144,7 +144,7 @@ export default function StudioCharacterPanel({
                           onChange(i, { description: e.target.value })
                         }
                         rows={3}
-                        className="rounded border border-dashed border-[var(--border)] bg-[var(--bg-elevated)] px-2 py-1.5 text-sm leading-relaxed"
+                        className="rounded-lg border border-dashed border-[var(--border)] bg-[var(--bg-elevated)] px-2 py-1.5 text-sm leading-relaxed"
                       />
                     </FieldLabel>
                   ) : null}

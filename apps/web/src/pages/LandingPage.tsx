@@ -18,13 +18,13 @@ export default function LandingPage() {
   }
 
   return (
-    <main className="relative min-h-full overflow-hidden">
+    <main className="yudu-page-in relative min-h-full overflow-hidden">
       <div
         className="pointer-events-none absolute inset-0 opacity-40"
         aria-hidden
         style={{
           background:
-            "radial-gradient(ellipse 80% 50% at 50% -10%, #c4a57422, transparent), radial-gradient(ellipse 60% 40% at 80% 80%, #1a2e2433, transparent)",
+            "radial-gradient(ellipse 80% 50% at 50% -10%, color-mix(in srgb, var(--accent) 13%, transparent), transparent), radial-gradient(ellipse 60% 40% at 80% 80%, color-mix(in srgb, var(--text) 20%, transparent), transparent)",
         }}
       />
 

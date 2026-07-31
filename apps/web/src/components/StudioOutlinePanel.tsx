@@ -62,7 +62,7 @@ export default function StudioOutlinePanel({
           <button
             type="button"
             onClick={onStop}
-            className="rounded-lg border border-red-500/40 px-3 py-1.5 text-sm text-red-300"
+            className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_40%,transparent)] px-3 py-1.5 text-sm text-[var(--danger)]"
           >
             停止
           </button>
@@ -78,7 +78,7 @@ export default function StudioOutlinePanel({
                 value={outlineDetail[f.key] ?? ""}
                 onChange={(e) => onDetailChange({ [f.key]: e.target.value })}
                 placeholder="一句话说清全书在讲什么"
-                className="rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 text-sm"
+                className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 text-sm"
               />
             </label>
           ) : (
@@ -88,7 +88,7 @@ export default function StudioOutlinePanel({
                 value={outlineDetail[f.key] ?? ""}
                 onChange={(e) => onDetailChange({ [f.key]: e.target.value })}
                 rows={FIELD_ROWS[f.key] ?? 3}
-                className="rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 font-serif text-sm leading-relaxed"
+                className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 font-serif text-sm leading-relaxed"
               />
             </label>
           ),
@@ -103,7 +103,7 @@ export default function StudioOutlinePanel({
               value={outline}
               onChange={(e) => onOutlineChange(e.target.value)}
               rows={10}
-              className="rounded border border-dashed border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 font-serif text-sm leading-relaxed"
+              className="rounded-lg border border-dashed border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 font-serif text-sm leading-relaxed"
             />
           </label>
         ) : null}

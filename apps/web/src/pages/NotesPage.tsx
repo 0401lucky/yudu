@@ -125,7 +125,7 @@ export default function NotesPage() {
   const empty = !loading && visibleGroups.length === 0;
 
   return (
-    <main className="min-h-full p-6 md:p-10">
+    <main className="yudu-page-in min-h-full p-6 md:p-10">
       <header className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
         <h1 className="text-xl font-semibold tracking-wide text-[var(--accent)]">
           雨读
@@ -202,7 +202,7 @@ export default function NotesPage() {
                   {group.highlights.map((hl) => (
                     <li
                       key={hl.id}
-                      className="flex items-start gap-2 border-b border-[var(--border)] px-4 py-3 last:border-b-0"
+                      className="flex items-start gap-2 border-b border-[var(--border)] px-4 py-3 transition-colors duration-150 last:border-b-0 hover:bg-[var(--bg)]"
                     >
                       <button
                         type="button"

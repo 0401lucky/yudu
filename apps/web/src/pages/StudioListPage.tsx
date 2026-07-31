@@ -80,7 +80,7 @@ export default function StudioListPage() {
   }
 
   return (
-    <main className="min-h-full p-6 md:p-10">
+    <main className="yudu-page-in min-h-full p-6 md:p-10">
       <header className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
         <div>
           <h1 className="text-xl font-semibold tracking-wide text-[var(--accent)]">
@@ -116,7 +116,7 @@ export default function StudioListPage() {
           onModelChange={() => setAiReady(isAiSettingsReady(getCachedAiSettings()))}
         />
         {!aiReady ? (
-          <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-[var(--text)]">
+          <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--warning)_40%,transparent)] bg-[var(--warning-weak)] px-4 py-3 text-sm text-[var(--text)]">
             尚未配置完整 API（地址 / 密钥 / 模型）。可先写设定与正文；生成前请完善上方模型或到{" "}
             <Link to="/settings" className="text-[var(--accent)] underline">
               设置
@@ -161,7 +161,7 @@ export default function StudioListPage() {
                   >
                     <span className="truncate">{b.title}</span>
                     {b.breakLimit ? (
-                      <span className="shrink-0 rounded-full border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 text-xs font-medium text-rose-300">
+                      <span className="shrink-0 rounded-full border border-[color:color-mix(in_srgb,var(--warning)_40%,transparent)] bg-[var(--warning-weak)] px-2 py-0.5 text-xs font-medium text-[var(--warning)]">
                         18+
                       </span>
                     ) : null}
@@ -201,7 +201,7 @@ export default function StudioListPage() {
                   <button
                     type="button"
                     onClick={() => void onDelete(b)}
-                    className="rounded-lg border border-red-500/40 px-3 py-1.5 text-red-300 transition-colors hover:bg-red-500/10"
+                    className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_40%,transparent)] px-3 py-1.5 text-[var(--danger)] transition-colors hover:bg-[var(--danger-weak)]"
                   >
                     删除
                   </button>

@@ -1,25 +1,31 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { useAuth } from "./lib/auth";
-import LandingPage from "./pages/LandingPage";
-import LibraryPage from "./pages/LibraryPage";
-import LoginPage from "./pages/LoginPage";
-import NotesPage from "./pages/NotesPage";
-import ReaderPage from "./pages/ReaderPage";
-import RegisterPage from "./pages/RegisterPage";
-import ReportPage from "./pages/ReportPage";
-import SettingsPage from "./pages/SettingsPage";
-import StudioListPage from "./pages/StudioListPage";
-import StudioWorkPage from "./pages/StudioWorkPage";
+
+const LandingPage = lazy(() => import("./pages/LandingPage"));
+const LibraryPage = lazy(() => import("./pages/LibraryPage"));
+const LoginPage = lazy(() => import("./pages/LoginPage"));
+const NotesPage = lazy(() => import("./pages/NotesPage"));
+const ReaderPage = lazy(() => import("./pages/ReaderPage"));
+const RegisterPage = lazy(() => import("./pages/RegisterPage"));
+const ReportPage = lazy(() => import("./pages/ReportPage"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const StudioListPage = lazy(() => import("./pages/StudioListPage"));
+const StudioWorkPage = lazy(() => import("./pages/StudioWorkPage"));
+
+function PageFallback() {
+  return (
+    <main className="min-h-full flex items-center justify-center p-8">
+      <p className="text-[var(--text-muted)]">加载中…</p>
+    </main>
+  );
+}
 
 function RequireAuth() {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <main className="min-h-full flex items-center justify-center p-8">
-        <p className="text-[var(--text-muted)]">加载中…</p>
-      </main>
-    );
+    return <PageFallback />;
   }
 
   if (!user) {
@@ -31,20 +37,22 @@ function RequireAuth() {
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
-      <Route element={<RequireAuth />}>
-        <Route path="/library" element={<LibraryPage />} />
-        <Route path="/studio" element={<StudioListPage />} />
-        <Route path="/studio/:bookId" element={<StudioWorkPage />} />
-        <Route path="/notes" element={<NotesPage />} />
-        <Route path="/report" element={<ReportPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/read/:bookId" element={<ReaderPage />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <Suspense fallback={<PageFallback />}>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route element={<RequireAuth />}>
+          <Route path="/library" element={<LibraryPage />} />
+          <Route path="/studio" element={<StudioListPage />} />
+          <Route path="/studio/:bookId" element={<StudioWorkPage />} />
+          <Route path="/notes" element={<NotesPage />} />
+          <Route path="/report" element={<ReportPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/read/:bookId" element={<ReaderPage />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Suspense>
   );
 }

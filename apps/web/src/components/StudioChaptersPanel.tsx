@@ -71,7 +71,7 @@ export default function StudioChaptersPanel({
           <button
             type="button"
             onClick={onStop}
-            className="rounded-lg border border-red-500/40 px-3 py-1.5 text-sm text-red-300"
+            className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_40%,transparent)] px-3 py-1.5 text-sm text-[var(--danger)]"
           >
             停止
           </button>
@@ -105,7 +105,7 @@ export default function StudioChaptersPanel({
                       e.stopPropagation();
                       onRemove(i);
                     }}
-                    className="shrink-0 rounded border border-red-500/40 px-2 py-0.5 text-xs text-red-300 transition-colors hover:bg-red-500/10"
+                    className="shrink-0 rounded border border-[color:color-mix(in_srgb,var(--danger)_40%,transparent)] px-2 py-0.5 text-xs text-[var(--danger)] transition-colors hover:bg-[var(--danger-weak)]"
                   >
                     删除
                   </button>
@@ -117,7 +117,7 @@ export default function StudioChaptersPanel({
                     <input
                       value={ch.title}
                       onChange={(e) => onChange(i, { title: e.target.value })}
-                      className="rounded border border-[var(--border)] bg-[var(--bg-elevated)] px-2 py-1.5 text-sm font-medium"
+                      className="rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-2 py-1.5 text-sm font-medium"
                     />
                   </label>
                   {CHAPTER_FIELDS.map((f) => (
@@ -129,7 +129,7 @@ export default function StudioChaptersPanel({
                         value={ch[f.key] ?? ""}
                         onChange={(e) => onChange(i, { [f.key]: e.target.value })}
                         rows={FIELD_ROWS[f.key] ?? 2}
-                        className="rounded border border-[var(--border)] bg-[var(--bg-elevated)] px-2 py-1.5 text-sm leading-relaxed"
+                        className="rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-2 py-1.5 text-sm leading-relaxed"
                       />
                     </label>
                   ))}

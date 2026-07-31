@@ -60,7 +60,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="min-h-full flex flex-col items-center justify-center p-6">
+    <main className="yudu-page-in min-h-full flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-md rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-8 shadow-lg">
         <div className="mb-6 text-center">
           <Link

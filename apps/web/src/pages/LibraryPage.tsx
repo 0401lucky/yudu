@@ -401,7 +401,7 @@ export default function LibraryPage() {
 
   return (
     <main
-      className={`min-h-full p-6 md:p-10 ${manageMode ? "pb-28 md:pb-28" : ""}`}
+      className={`yudu-page-in min-h-full p-6 md:p-10 ${manageMode ? "pb-28 md:pb-28" : ""}`}
     >
       <header className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
         <h1 className="text-xl font-semibold tracking-wide text-[var(--accent)]">
@@ -514,7 +514,7 @@ export default function LibraryPage() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          <div className="[content-visibility:auto] grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {visibleBooks.map((book) => (
               <BookCard
                 key={book.id}
@@ -534,7 +534,7 @@ export default function LibraryPage() {
 
       {/* 管理模式底部操作条 */}
       {manageMode ? (
-        <div className="safe-bottom fixed inset-x-0 bottom-0 z-20 border-t border-[var(--border)] bg-[var(--bg-elevated)]">
+        <div className="yudu-rise-in safe-bottom fixed inset-x-0 bottom-0 z-20 border-t border-[var(--border)] bg-[var(--bg-elevated)]">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-3 text-sm">
             <span className="text-[var(--text)]">
               已选 {selectedBooks.length} 本

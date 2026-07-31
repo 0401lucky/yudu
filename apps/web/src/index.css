@@ -380,6 +380,22 @@ body {
   animation: yudu-modal-in 0.2s var(--ease-out);
 }
 
+/* 页面进入动画：路由切换时 fade + translateY(6px)，150ms --ease-out（仅入场；
+   reduced-motion 由下方全局规则削弱） */
+@keyframes yudu-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.yudu-page-in {
+  animation: yudu-page-in 150ms var(--ease-out);
+}
+
 /* 选择器内列表：细滚动条，融入主题（复用热力图口径） */
 .yudu-thin-scroll {
   scrollbar-width: thin;

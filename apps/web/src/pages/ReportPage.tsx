@@ -91,7 +91,7 @@ export default function ReportPage() {
     report.bookmarkCount === 0;
 
   return (
-    <main className="min-h-full p-6 md:p-10">
+    <main className="yudu-page-in min-h-full p-6 md:p-10">
       <header className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
         <h1 className="text-xl font-semibold tracking-wide text-[var(--accent)]">
           雨读

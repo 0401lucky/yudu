@@ -610,7 +610,7 @@ export default function StudioWorkPage() {
   })();
 
   return (
-    <main className="min-h-full p-4 md:p-8">
+    <main className="yudu-page-in min-h-full p-4 md:p-8">
       <header className="mx-auto flex max-w-5xl flex-col gap-4 border-b border-[var(--border)] pb-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
@@ -629,7 +629,7 @@ export default function StudioWorkPage() {
                 {title || detail.title}
               </h1>
               {detail.breakLimit ? (
-                <span className="shrink-0 rounded-full border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 text-xs font-medium text-rose-300">
+                <span className="shrink-0 rounded-full border border-[color:color-mix(in_srgb,var(--warning)_40%,transparent)] bg-[var(--warning-weak)] px-2 py-0.5 text-xs font-medium text-[var(--warning)]">
                   18+
                 </span>
               ) : null}
@@ -826,7 +826,7 @@ export default function StudioWorkPage() {
                     </span>
                     <span className="ml-1 text-[var(--text-muted)]">字</span>
                     {generating ? (
-                      <span className="ml-2 text-xs text-amber-400">生成中</span>
+                      <span className="ml-2 text-xs text-[var(--warning)]">生成中</span>
                     ) : null}
                   </p>
                   <p>
@@ -862,7 +862,7 @@ export default function StudioWorkPage() {
                   <button
                     type="button"
                     onClick={() => abortRef.current?.abort()}
-                    className="rounded-lg border border-red-500/40 px-3 py-1.5 text-sm text-red-300"
+                    className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_40%,transparent)] px-3 py-1.5 text-sm text-[var(--danger)]"
                   >
                     停止
                   </button>

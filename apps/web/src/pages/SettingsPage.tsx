@@ -41,9 +41,9 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className="min-h-full p-6 md:p-10">
+    <main className="yudu-page-in min-h-full p-6 md:p-10">
       <header className="mx-auto flex max-w-lg items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
-        <h1 className="text-xl font-semibold text-[var(--text)]">设置</h1>
+        <h1 className="text-xl font-semibold tracking-wide text-[var(--accent)]">设置</h1>
         <Link
           to="/library"
           className="rounded text-sm text-[var(--accent)] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
@@ -150,7 +150,7 @@ export default function SettingsPage() {
           type="button"
           onClick={onLogout}
           disabled={submitting}
-          className="w-full rounded-lg border border-[var(--border)] py-2.5 text-[var(--text)] hover:border-[var(--accent)] disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          className="w-full rounded-lg border border-[var(--border)] py-2.5 text-[var(--text)] transition-colors duration-150 hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
         >
           {submitting ? "退出中…" : "退出登录"}
         </button>

@@ -33,6 +33,7 @@ export default function BookCard({
 }: BookCardProps) {
   const navigate = useNavigate();
   const [coverFailed, setCoverFailed] = useState(false);
+  const [coverLoaded, setCoverLoaded] = useState(false);
   const badge = statusLabel(book.status);
   const canOpen = book.status === "ready" && !selectable;
   const canReparse =
@@ -105,8 +106,11 @@ export default function BookCard({
           <img
             src={book.coverUrl}
             alt=""
-            className="h-full w-full object-cover"
+            className={`h-full w-full object-cover transition-opacity duration-150 ${
+              coverLoaded ? "opacity-100" : "opacity-0"
+            }`}
             loading="lazy"
+            onLoad={() => setCoverLoaded(true)}
             onError={() => setCoverFailed(true)}
           />
         ) : (
