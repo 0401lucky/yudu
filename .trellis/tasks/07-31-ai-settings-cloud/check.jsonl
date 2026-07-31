@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/api/backend/quality-guidelines.md", "reason": "后端新增路由与加密服务的质量基线核对"}
+{"file": ".trellis/spec/web/frontend/quality-guidelines.md", "reason": "核对 AI 配置节改写是否完整、是否误删仍然成立的 resolveProvider 回退与协议分发约定"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "本任务跨 shared / api / web 三层，须核对 DTO、加密边界、迁移逻辑在各层的一致性"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "迁移逻辑应复用 useBookmarks.ts:120-174 的既有模式，base64url helper 应复用 session.ts 而非重写"}
+{"file": ".trellis/spec/api/backend/database-guidelines.md", "reason": "核对新表是否符合约定、用户隔离查询是否全部带 WHERE user_id、迁移文件是否按序追加"}

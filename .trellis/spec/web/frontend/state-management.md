@@ -46,8 +46,9 @@ AuthProvider（用户会话）
 
 | 数据 | 位置 |
 |------|------|
-| 用户、书架、章节、进度、主题字号行距边距、书签、高亮 | API / D1 |
+| 用户、书架、章节、进度、主题字号行距边距、书签、高亮、AI 提供商配置（密钥加密） | API / D1 |
 | 字体 serif/sans、亮度蒙层、阅读模式 page/scroll | localStorage `yudu.reader.local` |
+| AI 配置的**首屏缓存**（只含掩码，无明文密钥） | localStorage `yudu_ai_settings_cache` |
 
 扩展「仅本机」阅读选项时，优先 `useLocalReaderPrefs`，避免无迁移就改 D1。
 

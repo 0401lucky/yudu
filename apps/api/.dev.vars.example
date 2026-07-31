@@ -1,2 +1,3 @@
 SESSION_SECRET=dev-only-change-me-to-long-random
+AI_KEY_SECRET=dev-only-ai-key-secret-change-me
 WEB_ORIGIN=http://127.0.0.1:5173

@@ -38,12 +38,16 @@
 
 ## AI 提供商配置（`lib/aiSettings.ts`）
 
-`yudu_ai_settings` 存 `providers[]`（每套自带 `protocol` / `baseUrl` / `apiKey` / 独立 `models` 缓存）加一对全局默认 `defaultProviderId` + `defaultModel`。密钥**只存本浏览器**，任何情况下不入库、不上传。
+配置**跟随账号存服务端**：`ai_providers` 表存 `providers[]`（每套自带 `protocol` / `baseUrl` / 加密密钥 / 独立 `models` 缓存），`user_ai_settings` 表存一对全局默认 `defaultProviderId` + `defaultModel`。密钥经 AES-GCM 加密后落库（主密钥 = Worker Secret `AI_KEY_SECRET`），明文不入库。
 
-- **迁移写在 `loadAiSettings()` 里，不做独立迁移函数**：读取是唯一入口，放这里保证任何路径进来都是新格式，不存在「忘了调迁移」。旧的 `{baseUrl, apiKey, model}` 会连同 `yudu_ai_models_cache` 并入一个名为「默认」的提供商，回写后删除旧键。**该迁移不可逆**，改动它前先补 `aiSettings.test.ts`。
+- **分层读取，列表不带明文**：`GET /api/ai/settings` 只回 `keyMask`（如 `sk-…a1b2`），明文密钥经 `GET /api/ai/providers/:id/key` 单独取，仅在即将调用第三方 API 时请求，取回后在内存 Map 缓存到本次会话结束。因此 `hasCredentials()` 判据是 `keyMask` 而非明文。
+- **两个 localStorage 键职责不同，绝不可合并**：`yudu_ai_settings` 是旧版明文配置、只作迁移来源；`yudu_ai_settings_cache` 是不含密钥的首屏缓存。合用一个键会让迁移检测把自己写的缓存当成待迁移数据，陷入重复上传。
+- **迁移仍写在读取入口 `fetchAiSettings()` 里，不做独立迁移函数**：保证任何路径进来都已处理。云端为空则静默上传本机旧配置并清除本地明文；云端已有则挂起，由设置页提示手动导入或丢弃。**上传全部成功才清本地**，部分失败保留下次重试（同 `useBookmarks` 的书签迁移口径）。上传必须原样带上旧 `id`——`books.studio_provider_id` 引用着它们，换 id 会让已绑定的书失效。
 - **模型缓存内嵌在 provider 内**，不再有全局 cache 键——拉取 B 的列表不会覆盖 A 的，也就没有「缓存与当前 baseUrl 不匹配」的 stale 概念。
-- **书级绑定是 `providerId` + `model` 两列**（D1 `studio_provider_id` / `studio_model`），与前端的一对默认字段同构，两者必须同时落库。解析统一走 `resolveProvider(settings, bookProviderId?, bookModel?)`：书未绑定或绑定的提供商已删除时回退全局默认，拿不到就返回 `null` 让调用方提示。
-- 新协议只在 `aiClient.ts` 内分发，`listAiModels` / `streamChatCompletion` 的签名接收 `AiProvider` 而非整个 settings，加协议不改调用方。
+- **书级绑定是 `providerId` + `model` 两列**（D1 `studio_provider_id` / `studio_model`），与全局默认字段同构，两者必须同时落库。解析统一走 `resolveProvider(settings, bookProviderId?, bookModel?)`：书未绑定或绑定的提供商已删除时回退全局默认，拿不到就返回 `null` 让调用方提示。
+- **写操作后广播 `yudu-ai-settings-changed`**，其余组件只重读缓存、不重新请求；`fetchAiSettings()` 刷新缓存后同样广播，让同页面组件（如创作台列表页的「AI 就绪」判断）同步。
+- **登出必须调 `resetAiSettingsState()`**，清掉内存密钥、本地缓存与迁移标记，否则换账号后首屏会串到上一个账号的提供商列表。
+- 新协议只在 `aiClient.ts` 内分发，`listAiModels` / `streamChatCompletion` 的签名接收 `AiProvider`（= `AiProviderMeta` + 明文 `apiKey`）而非整个 settings，加协议不改调用方。
 
 ### 三种协议的差异（`lib/aiClient.ts`）
 

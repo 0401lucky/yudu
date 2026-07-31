@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { Env } from "./env";
+import { aiSettingsRoutes } from "./routes/aiSettings";
 import { authRoutes, meRoutes } from "./routes/auth";
 import { bookmarksRoutes } from "./routes/bookmarks";
 import { booksRoutes } from "./routes/books";
@@ -49,6 +50,8 @@ app.route("/api/books", searchRoutes);
 app.route("/api/notes", notesRoutes);
 app.route("/api/progress", progressRoutes);
 app.route("/api/preferences", preferencesRoutes);
+// AI 提供商配置（跟随账号，密钥加密存储）
+app.route("/api/ai", aiSettingsRoutes);
 app.route("/api/stats", statsRoutes);
 
 /**

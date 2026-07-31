@@ -40,3 +40,18 @@ export const MAX_STUDIO_CHARACTERS = 40;
 export const MAX_STUDIO_CHAPTER_OUTLINES = 500;
 /** 每本创作书独立记忆的模型 id 最大长度 */
 export const MAX_STUDIO_MODEL_CHARS = 200;
+
+/** AI 提供商请求协议白名单（前后端共用校验口径） */
+export const AI_PROTOCOLS = ["openai", "gemini", "anthropic"] as const;
+/** AI 请求协议（由白名单推导） */
+export type AiProtocol = (typeof AI_PROTOCOLS)[number];
+/** 单账号 AI 提供商数量上限 */
+export const MAX_AI_PROVIDERS = 20;
+/** 提供商名称最大长度（前后端共用校验口径） */
+export const MAX_AI_PROVIDER_NAME_CHARS = 50;
+/** API Key 最大长度 */
+export const MAX_AI_API_KEY_CHARS = 500;
+/** API Base URL 最大长度 */
+export const MAX_AI_BASE_URL_CHARS = 300;
+/** 单个提供商缓存的模型 id 条数上限 */
+export const MAX_AI_MODELS = 500;

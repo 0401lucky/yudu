@@ -1,4 +1,6 @@
 import type {
+  AiProviderMeta,
+  AiSettingsDto,
   AnnualReportResponse,
   ApiErrorBody,
   BookDetail,
@@ -362,6 +364,71 @@ export function getReadingStats(days?: number): Promise<ReadingStatsResponse> {
 export function getAnnualReport(year?: number): Promise<AnnualReportResponse> {
   const query = year != null ? `?year=${year}` : "";
   return api<AnnualReportResponse>(`/api/stats/annual${query}`);
+}
+
+/* —— AI 提供商配置（跟随账号；密钥服务端加密存储） —— */
+
+/** 提供商列表只带掩码，不含明文密钥 */
+export function getAiSettings(): Promise<AiSettingsDto> {
+  return api<AiSettingsDto>("/api/ai/settings");
+}
+
+export function putAiDefaults(body: {
+  defaultProviderId: string | null;
+  defaultModel: string | null;
+}): Promise<{ defaultProviderId: string | null; defaultModel: string | null }> {
+  return api("/api/ai/settings", {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+/** 新建；`id` 由调用方生成，迁移旧配置时必须原样传入以保住书级绑定 */
+export function createAiProvider(body: {
+  id?: string;
+  name: string;
+  protocol: string;
+  baseUrl: string;
+  apiKey: string;
+  models?: string[];
+  modelsFetchedAt?: number;
+}): Promise<AiProviderMeta> {
+  return api<AiProviderMeta>("/api/ai/providers", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+/** 局部更新；不传 `apiKey` 表示保留原密钥 */
+export function patchAiProvider(
+  id: string,
+  body: {
+    name?: string;
+    protocol?: string;
+    baseUrl?: string;
+    apiKey?: string;
+    models?: string[];
+    modelsFetchedAt?: number;
+  },
+): Promise<AiProviderMeta> {
+  return api<AiProviderMeta>(`/api/ai/providers/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteAiProvider(id: string): Promise<void> {
+  return api<void>(`/api/ai/providers/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+/** 取明文密钥；仅在即将调用第三方 AI 接口前调用 */
+export async function getAiProviderKey(id: string): Promise<string> {
+  const res = await api<{ apiKey: string }>(
+    `/api/ai/providers/${encodeURIComponent(id)}/key`,
+  );
+  return res.apiKey;
 }
 
 /* —— AI 创作台 —— */

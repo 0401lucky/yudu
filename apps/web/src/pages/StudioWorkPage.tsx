@@ -24,10 +24,11 @@ import {
 } from "../lib/api";
 import { AiClientError, streamChatCompletion } from "../lib/aiClient";
 import {
+  getCachedAiSettings,
   isAdultConfirmed,
-  loadAiSettings,
   resolveProvider,
   setAdultConfirmed,
+  withApiKey,
   type AiProvider,
 } from "../lib/aiSettings";
 import {
@@ -146,10 +147,13 @@ export default function StudioWorkPage() {
     void loadChapterBody(activeChapter, detail, assets);
   }, [detail, assets, step, activeChapter, loadChapterBody]);
 
-  /** 解析本书实际要用的提供商与模型；不可用时给出可读提示并返回 null */
-  function requireAi(): { provider: AiProvider; model: string } | null {
+  /**
+   * 解析本书实际要用的提供商与模型，并取回明文密钥组装成可直接发请求的对象。
+   * 不可用时给出可读提示并返回 null。
+   */
+  async function requireAi(): Promise<{ provider: AiProvider; model: string } | null> {
     const resolved = resolveProvider(
-      loadAiSettings(),
+      getCachedAiSettings(),
       detail?.providerId,
       detail?.model,
     );
@@ -157,7 +161,15 @@ export default function StudioWorkPage() {
       setError("请先在「设置」添加 AI 提供商，并在上方选择本书模型");
       return null;
     }
-    return resolved;
+    try {
+      return {
+        provider: await withApiKey(resolved.provider),
+        model: resolved.model,
+      };
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "读取 API 密钥失败");
+      return null;
+    }
   }
 
   function confirmBreakLimitIfNeeded(next: boolean): boolean {
@@ -231,7 +243,7 @@ export default function StudioWorkPage() {
     onFull: (text: string) => void | Promise<void>,
     onPartial?: (text: string) => void,
   ) {
-    const ai = requireAi();
+    const ai = await requireAi();
     if (!ai) return;
     abortRef.current?.abort();
     const ac = new AbortController();

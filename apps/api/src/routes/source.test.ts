@@ -90,6 +90,7 @@ function createApp() {
     DB: createMockDb(),
     BOOKS_BUCKET: createMockBucket(),
     SESSION_SECRET: "test-session-secret",
+    AI_KEY_SECRET: "test-ai-key-secret",
   };
   return {
     request(path: string, init?: RequestInit) {

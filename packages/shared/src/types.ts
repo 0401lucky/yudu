@@ -1,4 +1,4 @@
-import type { BookFormat, BookSource, HighlightColor } from "./constants";
+import type { AiProtocol, BookFormat, BookSource, HighlightColor } from "./constants";
 
 export type BookStatus = "processing" | "ready" | "failed";
 export type ThemeId = "night" | "paper";
@@ -226,6 +226,32 @@ export interface UserPreferences {
   fontSize: number;
   lineHeight: number;
   pageMargin: "compact" | "normal" | "relaxed";
+}
+
+/**
+ * AI 提供商配置（**不含**明文密钥）。
+ * 密钥经服务端 AES-GCM 加密存储，仅在发起 AI 请求前通过
+ * `GET /api/ai/providers/:id/key` 单独取回，避免每次拉配置都在网络上传输密钥。
+ */
+export interface AiProviderMeta {
+  id: string;
+  name: string;
+  protocol: AiProtocol;
+  /** OpenAI 兼容中转必填；Gemini / Anthropic 留空表示走官方地址 */
+  baseUrl: string;
+  /** 密钥掩码，如 `sk-…a1b2`；空串表示未设置密钥 */
+  keyMask: string;
+  /** 该提供商独立的模型列表缓存 */
+  models: string[];
+  /** 模型列表拉取时间（毫秒）；0 表示从未拉取 */
+  modelsFetchedAt: number;
+}
+
+/** `GET /api/ai/settings` 响应：提供商列表 + 一对全局默认 */
+export interface AiSettingsDto {
+  providers: AiProviderMeta[];
+  defaultProviderId: string | null;
+  defaultModel: string | null;
 }
 
 /** 书内全文搜索：单条命中 */

@@ -2,8 +2,11 @@ import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, u
 import { Link } from "react-router-dom";
 import { AiClientError, listAiModels } from "../lib/aiClient";
 import {
+  AI_SETTINGS_CHANGED_EVENT,
+  fetchAiSettings,
+  getCachedAiSettings,
+  getProviderKey,
   hasCredentials,
-  loadAiSettings,
   resolveProvider,
   setDefaultModel,
   setProviderModels,
@@ -46,21 +49,28 @@ export default function StudioModelPicker({
   label = "模型",
 }: StudioModelPickerProps) {
   const controlled = value !== undefined;
-  const [settings, setSettings] = useState<AiSettings>(() => loadAiSettings());
+  // 先用本地缓存渲染，避免进创作台闪一下「无配置」；随后再拉服务端刷新
+  const [settings, setSettings] = useState<AiSettings>(() => getCachedAiSettings());
   const [fetching, setFetching] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    const reload = () => setSettings(loadAiSettings());
-    reload();
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === "yudu_ai_settings" || e.key == null) reload();
-    };
-    window.addEventListener("storage", onStorage);
-    window.addEventListener("yudu-ai-settings-changed", reload);
+    let cancelled = false;
+    const reload = () => setSettings(getCachedAiSettings());
+
+    void (async () => {
+      try {
+        const next = await fetchAiSettings();
+        if (!cancelled) setSettings(next);
+      } catch {
+        // 拉取失败就继续用缓存；真正发请求时会再报一次具体错误
+      }
+    })();
+
+    window.addEventListener(AI_SETTINGS_CHANGED_EVENT, reload);
     return () => {
-      window.removeEventListener("storage", onStorage);
-      window.removeEventListener("yudu-ai-settings-changed", reload);
+      cancelled = true;
+      window.removeEventListener(AI_SETTINGS_CHANGED_EVENT, reload);
     };
   }, []);
 
@@ -99,20 +109,26 @@ export default function StudioModelPicker({
     if (controlled) {
       onSelect?.(opt.providerId, opt.model);
       onModelChange?.(settings);
-    } else {
-      const next = setDefaultModel(opt.providerId, opt.model, settings);
-      setSettings(next);
-      onSelect?.(opt.providerId, opt.model);
-      window.dispatchEvent(new Event("yudu-ai-settings-changed"));
-      onModelChange?.(next);
+      setErr(null);
+      return;
     }
-    setErr(null);
+    void (async () => {
+      try {
+        const next = await setDefaultModel(opt.providerId, opt.model);
+        setSettings(next);
+        onSelect?.(opt.providerId, opt.model);
+        onModelChange?.(next);
+        setErr(null);
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "保存默认模型失败");
+      }
+    })();
   }
 
-  /** 刷新所有已填凭证的提供商；逐个写回，互不覆盖 */
+  /** 刷新所有已配凭证的提供商；逐个写回，互不覆盖 */
   async function refresh() {
     setErr(null);
-    const targets = loadAiSettings().providers.filter(hasCredentials);
+    const targets = getCachedAiSettings().providers.filter(hasCredentials);
     if (!targets.length) {
       setErr("请先在设置中填写提供商的地址与密钥");
       return;
@@ -122,16 +138,19 @@ export default function StudioModelPicker({
     try {
       for (const p of targets) {
         try {
-          const ids = await listAiModels({ provider: p });
-          if (ids.length) setProviderModels(p.id, ids);
+          // 拉模型列表要真密钥，这里才回服务端取一次明文
+          const apiKey = await getProviderKey(p.id);
+          const ids = await listAiModels({ provider: { ...p, apiKey } });
+          if (ids.length) await setProviderModels(p.id, ids);
           else failed.push(p.name);
         } catch (e) {
-          failed.push(`${p.name}（${e instanceof AiClientError || e instanceof Error ? e.message : "拉取失败"}）`);
+          failed.push(
+            `${p.name}（${e instanceof AiClientError || e instanceof Error ? e.message : "拉取失败"}）`,
+          );
         }
       }
-      const next = loadAiSettings();
+      const next = getCachedAiSettings();
       setSettings(next);
-      window.dispatchEvent(new Event("yudu-ai-settings-changed"));
       if (failed.length) setErr(`部分提供商未取到模型：${failed.join("；")}`);
     } finally {
       setFetching(false);

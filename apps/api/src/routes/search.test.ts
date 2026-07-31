@@ -104,6 +104,7 @@ function createApp(db: D1Database, bucket: R2Bucket) {
     DB: db,
     BOOKS_BUCKET: bucket,
     SESSION_SECRET: "test-session-secret",
+    AI_KEY_SECRET: "test-ai-key-secret",
   };
   return {
     request(path: string, init?: RequestInit) {

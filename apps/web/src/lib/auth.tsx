@@ -15,6 +15,7 @@ import {
   logout as apiLogout,
   register as apiRegister,
 } from "./api";
+import { resetAiSettingsState } from "./aiSettings";
 
 export type AuthContextValue = {
   user: UserPublic | null;
@@ -77,6 +78,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await apiLogout();
     } finally {
       setUser(null);
+      // AI 配置随账号走，登出必须连同本地缓存与内存密钥一起清掉
+      resetAiSettingsState();
     }
   }, []);
 

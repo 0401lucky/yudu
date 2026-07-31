@@ -8,7 +8,7 @@ import {
   deleteBook,
   listStudioBooks,
 } from "../lib/api";
-import { isAiSettingsReady, loadAiSettings } from "../lib/aiSettings";
+import { AI_SETTINGS_CHANGED_EVENT, getCachedAiSettings, isAiSettingsReady } from "../lib/aiSettings";
 import { useAuth } from "../lib/auth";
 
 export default function StudioListPage() {
@@ -33,15 +33,19 @@ export default function StudioListPage() {
       setError(null);
       try {
         await refresh();
-        if (!cancelled) setAiReady(isAiSettingsReady(loadAiSettings()));
+        if (!cancelled) setAiReady(isAiSettingsReady(getCachedAiSettings()));
       } catch (err) {
         if (!cancelled) setError(errMessage(err, "加载创作列表失败"));
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
+    // 模型选择器拉完云端配置后会广播，据此同步「AI 是否就绪」
+    const syncAiReady = () => setAiReady(isAiSettingsReady(getCachedAiSettings()));
+    window.addEventListener(AI_SETTINGS_CHANGED_EVENT, syncAiReady);
     return () => {
       cancelled = true;
+      window.removeEventListener(AI_SETTINGS_CHANGED_EVENT, syncAiReady);
     };
   }, [refresh]);
 
@@ -110,7 +114,7 @@ export default function StudioListPage() {
         <StudioModelPicker
           compact={false}
           label="默认生成模型"
-          onModelChange={() => setAiReady(isAiSettingsReady(loadAiSettings()))}
+          onModelChange={() => setAiReady(isAiSettingsReady(getCachedAiSettings()))}
         />
         {!aiReady ? (
           <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-[var(--text)]">
