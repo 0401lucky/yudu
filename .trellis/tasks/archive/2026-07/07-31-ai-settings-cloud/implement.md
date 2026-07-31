@@ -60,11 +60,15 @@
 
 ### 阶段 E：部署（需用户执行/确认）
 
-- [ ] **E1** `pnpm --filter @yudu/api exec wrangler secret put AI_KEY_SECRET`（值取足够长随机串）
-- [ ] **E2** `pnpm --filter @yudu/api exec wrangler d1 migrations apply novel-reading-platform-db --remote`
-- [ ] **E3** `pnpm build && pnpm --filter @yudu/api deploy`
+- [x] **E1** `pnpm --filter @yudu/api exec wrangler secret put AI_KEY_SECRET`（值取足够长随机串）
+- [x] **E2** `pnpm --filter @yudu/api exec wrangler d1 migrations apply novel-reading-platform-db --remote`
+- [x] **E3** `pnpm build && pnpm --filter @yudu/api deploy`
 
 **顺序不可颠倒**：secret 未设就部署 → AI 配置接口全 5xx。
+
+已于 2026-07-31 部署完成：Worker 版本 `1f44a996-3590-49ab-a11e-1d976b6db0e9`。
+生产验证：加密写入 `v1.GubS2KmX5XIVykrq.…`、解密回读一致、列表无明文、
+生产库明文泄露数 0；验证用的临时账号与数据已删除，三张表归零。
 
 ## 验证命令速查
 
