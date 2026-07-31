@@ -15,6 +15,13 @@
 - 安全区 padding；阅读区 `100dvh`
 - 键盘左右键翻页（`ReaderPage`）；触控区由 Viewport/Chrome 处理
 
+## 性能与动效
+
+- **新页面必须 `React.lazy`** 懒加载（App.tsx 全部页面已按路由分割；主包 gzip ≈65KB）
+- 动效只用 `transform`/`opacity`，时长 ≤300ms（`--motion-*`/`--ease-out`），尊重 `prefers-reduced-motion`
+- 弹层优先复用 `DrawerShell`/`SheetShell`（常驻挂载 + 过渡 + 卸载时序已封装）；页面根元素加 `yudu-page-in`
+- 大列表容器加 `content-visibility: auto`；封面图 `loading="lazy"` + 淡入
+
 ## 创作台 AI 输出解析（`lib/studioPrompts.ts`）
 
 用户自配中转 API，模型能力与听话程度不可控。因此：
