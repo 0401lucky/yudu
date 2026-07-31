@@ -1,0 +1,30 @@
+{
+  "id": "ui-polish",
+  "name": "ui-polish",
+  "title": "UI 整体视觉升级与动效优化",
+  "description": "全站视觉精致化：保持现有暖琥珀/纸质基调，升级设计系统（tokens/字体/组件质感），补充交互动效，保证性能",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": "web",
+  "priority": "P2",
+  "creator": "0401lucky",
+  "assignee": "0401lucky",
+  "createdAt": "2026-07-31",
+  "completedAt": "2026-07-31",
+  "branch": null,
+  "base_branch": "feat/yudu-reader",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "07-31-ui-design-tokens",
+    "07-31-ui-components",
+    "07-31-ui-pages"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
