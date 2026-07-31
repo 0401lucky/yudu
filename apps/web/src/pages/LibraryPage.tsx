@@ -1,8 +1,9 @@
 import { MAX_BOOK_GROUP_CHARS } from "@yudu/shared";
 import type { BookSummary, DailyReadingStat } from "@yudu/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import BookCard from "../components/BookCard";
+import ErrorBanner from "../components/ErrorBanner";
+import { OutlineButtonLink } from "../components/buttons";
 import ImportDropzone from "../components/ImportDropzone";
 import ReadingStatsBar from "../components/ReadingStatsBar";
 import ShelfToolbar, {
@@ -418,33 +419,33 @@ export default function LibraryPage() {
               if (msg) setError(msg);
             }}
           />
-          <Link
+          <OutlineButtonLink
             to="/studio"
             title="创作台"
             aria-label="创作台"
-            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-3 text-sm text-[var(--text)] hover:border-[color:color-mix(in_srgb,var(--accent)_60%,transparent)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+            className="inline-flex min-h-[44px] items-center gap-1.5 bg-[var(--bg-elevated)] px-3"
           >
             <PenIcon />
             <span className="hidden sm:inline">创作台</span>
-          </Link>
-          <Link
+          </OutlineButtonLink>
+          <OutlineButtonLink
             to="/notes"
             title="笔记"
             aria-label="笔记"
-            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-3 text-sm text-[var(--text)] hover:border-[color:color-mix(in_srgb,var(--accent)_60%,transparent)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+            className="inline-flex min-h-[44px] items-center gap-1.5 bg-[var(--bg-elevated)] px-3"
           >
             <NotebookIcon />
             <span className="hidden sm:inline">笔记</span>
-          </Link>
-          <Link
+          </OutlineButtonLink>
+          <OutlineButtonLink
             to="/settings"
             title="设置"
             aria-label="设置"
-            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-3 text-sm text-[var(--text)] hover:border-[color:color-mix(in_srgb,var(--accent)_60%,transparent)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+            className="inline-flex min-h-[44px] items-center gap-1.5 bg-[var(--bg-elevated)] px-3"
           >
             <SettingsIcon />
             <span className="hidden sm:inline">设置</span>
-          </Link>
+          </OutlineButtonLink>
         </nav>
       </header>
 
@@ -477,14 +478,7 @@ export default function LibraryPage() {
           />
         ) : null}
 
-        {error ? (
-          <p
-            className="mb-4 rounded-lg border border-red-500/40 bg-red-950/20 px-3 py-2 text-sm text-red-400"
-            role="alert"
-          >
-            {error}
-          </p>
-        ) : null}
+        {error ? <ErrorBanner message={error} className="mb-4" /> : null}
 
         {importStatus ? (
           <p

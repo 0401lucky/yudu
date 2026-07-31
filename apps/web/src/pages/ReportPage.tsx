@@ -2,6 +2,8 @@ import { MIN_REPORT_YEAR } from "@yudu/shared";
 import type { AnnualReportResponse } from "@yudu/shared";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import ErrorBanner from "../components/ErrorBanner";
+import { PrimaryButtonLink } from "../components/buttons";
 import ReadingHeatmap from "../components/ReadingHeatmap";
 import { getAnnualReport } from "../lib/api";
 import { formatDuration } from "../lib/readingStats";
@@ -135,14 +137,7 @@ export default function ReportPage() {
           </div>
         </div>
 
-        {error ? (
-          <p
-            className="mb-4 rounded-lg border border-red-500/40 bg-red-950/20 px-3 py-2 text-sm text-red-400"
-            role="alert"
-          >
-            {error}
-          </p>
-        ) : null}
+        {error ? <ErrorBanner message={error} className="mb-4" /> : null}
 
         {loading ? (
           <div className="space-y-4">
@@ -157,12 +152,9 @@ export default function ReportPage() {
             <p className="mt-2 text-sm text-[var(--text-muted)]">
               翻开一本书读上几分钟，这里就会亮起来。
             </p>
-            <Link
-              to="/library"
-              className="mt-6 inline-block rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-            >
+            <PrimaryButtonLink to="/library" className="mt-6 px-4 py-2">
               去书架
-            </Link>
+            </PrimaryButtonLink>
           </div>
         ) : (
           <div className="space-y-6">

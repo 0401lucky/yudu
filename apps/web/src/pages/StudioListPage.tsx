@@ -1,6 +1,10 @@
 import type { BookSummary } from "@yudu/shared";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import {
+  OutlineButtonLink,
+  PrimaryButton,
+} from "../components/buttons";
 import StudioModelPicker from "../components/StudioModelPicker";
 import {
   ApiError,
@@ -87,26 +91,21 @@ export default function StudioListPage() {
           </p>
         </div>
         <nav className="flex flex-wrap items-center gap-3 text-sm">
-          <Link
+          <OutlineButtonLink
             to="/library"
-            className="rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-2 text-[var(--text)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+            className="bg-[var(--bg-elevated)] px-3 py-2"
           >
             书架
-          </Link>
-          <Link
+          </OutlineButtonLink>
+          <OutlineButtonLink
             to="/settings"
-            className="rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-2 text-[var(--text)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+            className="bg-[var(--bg-elevated)] px-3 py-2"
           >
             API 设置
-          </Link>
-          <button
-            type="button"
-            onClick={() => void onCreate()}
-            disabled={creating}
-            className="rounded-lg bg-[var(--accent)] px-4 py-2 font-medium text-[var(--bg)] disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-          >
+          </OutlineButtonLink>
+          <PrimaryButton onClick={() => void onCreate()} disabled={creating}>
             {creating ? "创建中…" : "新建作品"}
-          </button>
+          </PrimaryButton>
         </nav>
       </header>
 
@@ -140,14 +139,13 @@ export default function StudioListPage() {
             <p className="mt-2 text-sm text-[var(--text-muted)]">
               从立项、人设、大纲到逐章生成，可选上架到书架继续阅读。
             </p>
-            <button
-              type="button"
+            <PrimaryButton
               onClick={() => void onCreate()}
               disabled={creating}
-              className="mt-6 rounded-lg bg-[var(--accent)] px-5 py-2.5 text-[var(--bg)] disabled:opacity-60"
+              className="mt-6 px-5 py-2.5"
             >
               开始第一部
-            </button>
+            </PrimaryButton>
           </div>
         ) : (
           <ul className="space-y-3">
@@ -186,19 +184,19 @@ export default function StudioListPage() {
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2 text-sm">
-                  <Link
+                  <OutlineButtonLink
                     to={`/studio/${b.id}`}
-                    className="rounded-lg border border-[var(--border)] px-3 py-1.5 transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                    className="px-3 py-1.5"
                   >
                     继续创作
-                  </Link>
+                  </OutlineButtonLink>
                   {b.onShelf ? (
-                    <Link
+                    <OutlineButtonLink
                       to={`/read/${b.id}`}
-                      className="rounded-lg border border-[var(--border)] px-3 py-1.5 transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                      className="px-3 py-1.5"
                     >
                       阅读
-                    </Link>
+                    </OutlineButtonLink>
                   ) : null}
                   <button
                     type="button"

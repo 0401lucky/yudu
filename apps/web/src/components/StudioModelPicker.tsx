@@ -1,6 +1,8 @@
 import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { AiClientError, listAiModels } from "../lib/aiClient";
+import { ChevronIcon, SearchIcon } from "../lib/icons";
+import { OutlineButton } from "./buttons";
 import {
   AI_SETTINGS_CHANGED_EVENT,
   fetchAiSettings,
@@ -346,7 +348,10 @@ function ModelCombobox({
             "选择模型…"
           )}
         </span>
-        <ChevronIcon open={open} />
+        <ChevronIcon
+          open={open}
+          className="h-3.5 w-3.5 text-[var(--text-muted)]"
+        />
       </button>
 
       {open ? (
@@ -357,7 +362,7 @@ function ModelCombobox({
         >
           <div className="border-b border-[var(--border)] p-2">
             <div className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-2.5 py-1.5">
-              <SearchIcon />
+              <SearchIcon className="h-[15px] w-[15px] shrink-0 text-[var(--text-muted)]" />
               {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
               <input
                 autoFocus
@@ -417,38 +422,18 @@ function ModelCombobox({
             <span className="truncate text-xs text-[var(--text-muted)]">
               {fetchedAt ? `缓存于 ${new Date(fetchedAt).toLocaleDateString()}` : "尚未拉取列表"}
             </span>
-            <button
-              type="button"
+            <OutlineButton
               disabled={fetching}
               onClick={onRefresh}
-              className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[var(--border)] px-2.5 py-1 text-xs text-[var(--text-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-50"
+              className="flex shrink-0 items-center gap-1.5 px-2.5 py-1 text-xs text-[var(--text-muted)]"
             >
               <RefreshIcon spinning={fetching} />
               {fetching ? "拉取中" : options.length ? "刷新" : "获取列表"}
-            </button>
+            </OutlineButton>
           </div>
         </div>
       ) : null}
     </div>
-  );
-}
-
-function ChevronIcon({ open }: { open: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="14"
-      height="14"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={`shrink-0 text-[var(--text-muted)] transition-transform ${open ? "rotate-180" : ""}`}
-      aria-hidden="true"
-    >
-      <path d="m6 9 6 6 6-6" />
-    </svg>
   );
 }
 
@@ -466,26 +451,6 @@ function CheckIcon() {
       aria-hidden="true"
     >
       <path d="M20 6 9 17l-5-5" />
-    </svg>
-  );
-}
-
-function SearchIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="15"
-      height="15"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="shrink-0 text-[var(--text-muted)]"
-      aria-hidden="true"
-    >
-      <circle cx="11" cy="11" r="7" />
-      <path d="m21 21-4.3-4.3" />
     </svg>
   );
 }

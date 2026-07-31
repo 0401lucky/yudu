@@ -28,10 +28,11 @@ interface HighlightPopoverProps {
   onDelete?: () => void;
 }
 
-const DOT_COLOR: Record<HighlightColor, string> = {
-  yellow: "#eab308",
-  green: "#22c55e",
-  blue: "#3b82f6",
+/** 色点底色：消费 --hl-* 变量（与正文高亮底色同源，night/paper 各自调色） */
+const DOT_BG: Record<HighlightColor, string> = {
+  yellow: "var(--hl-yellow)",
+  green: "var(--hl-green)",
+  blue: "var(--hl-blue)",
 };
 const DOT_LABEL: Record<HighlightColor, string> = {
   yellow: "黄色高亮",
@@ -112,7 +113,7 @@ export default function HighlightPopover({
                     ? "ring-2 ring-[var(--text)] ring-offset-2 ring-offset-[var(--bg-elevated)]"
                     : ""
                 }`}
-                style={{ backgroundColor: DOT_COLOR[color] }}
+                style={{ backgroundColor: DOT_BG[color] }}
               />
             );
           })}

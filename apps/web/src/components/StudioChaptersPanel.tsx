@@ -1,4 +1,5 @@
 import type { StudioChapterOutline } from "@yudu/shared";
+import { OutlineButton, PrimaryButton } from "./buttons";
 import { CHAPTER_FIELDS } from "../lib/studioPrompts";
 
 interface StudioChaptersPanelProps {
@@ -45,33 +46,27 @@ export default function StudioChaptersPanel({
   return (
     <div className="space-y-4 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5">
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
+        <PrimaryButton
           disabled={generating}
           onClick={onGenerate}
-          className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm text-[var(--bg)] disabled:opacity-60"
+          className="px-3 py-1.5"
         >
           {generating
             ? "生成中…"
             : autoChapterCount
               ? "AI 生成细纲（自动章数）"
               : "AI 生成细纲（10 章）"}
-        </button>
-        <button
-          type="button"
-          onClick={onAdd}
-          className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm"
-        >
+        </PrimaryButton>
+        <OutlineButton onClick={onAdd} className="px-3 py-1.5">
           加一章细纲
-        </button>
-        <button
-          type="button"
+        </OutlineButton>
+        <OutlineButton
           disabled={saving || generating}
           onClick={onSave}
-          className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm disabled:opacity-60"
+          className="px-3 py-1.5"
         >
           保存细纲
-        </button>
+        </OutlineButton>
         {generating ? (
           <button
             type="button"

@@ -1,5 +1,6 @@
 import type { StudioPremise } from "@yudu/shared";
 import { useState } from "react";
+import { OutlineButton, PrimaryButton } from "./buttons";
 import {
   GENRE_PRESETS,
   IDEA_SAMPLES,
@@ -80,14 +81,13 @@ export default function StudioPremisePanel({
           ))}
         </div>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
+          <PrimaryButton
             disabled={generating}
             onClick={onAiPremise}
-            className="rounded-lg bg-[var(--accent)] px-4 py-2 font-medium text-[var(--bg)] disabled:opacity-60"
+            className="px-4 py-2"
           >
             {generating ? "立项中…" : "AI 帮我立项"}
-          </button>
+          </PrimaryButton>
           {generating ? (
             <button
               type="button"
@@ -113,14 +113,13 @@ export default function StudioPremisePanel({
                 className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[var(--text)]"
               />
             </label>
-            <button
-              type="button"
+            <OutlineButton
               disabled={generating}
               onClick={onAiTitles}
-              className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-60"
+              className="px-3 py-2"
             >
               ⟳ 换一批书名
-            </button>
+            </OutlineButton>
           </div>
           {titleCandidates.length ? (
             <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -226,14 +225,13 @@ export default function StudioPremisePanel({
           </span>
         </label>
 
-        <button
-          type="button"
+        <PrimaryButton
           disabled={saving}
           onClick={onSave}
-          className="rounded-lg bg-[var(--accent)] px-4 py-2 text-[var(--bg)] disabled:opacity-60"
+          className="px-4 py-2"
         >
           {saving ? "保存中…" : "保存立项"}
-        </button>
+        </PrimaryButton>
       </section>
     </div>
   );

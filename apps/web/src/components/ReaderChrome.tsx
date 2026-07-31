@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { SearchIcon } from "../lib/icons";
 
 interface HeaderProps {
   visible: boolean;
@@ -28,7 +29,7 @@ export function ReaderHeader({
 }: HeaderProps) {
   if (!visible) return null;
   return (
-    <header className="reader-chrome shrink-0 border-b border-[var(--border)] bg-[var(--bg-elevated)] px-2 pt-[max(0.5rem,env(safe-area-inset-top))] pb-1.5 sm:px-3 sm:py-2">
+    <header className="reader-chrome yudu-rise-in shrink-0 border-b border-[var(--border)] bg-[var(--bg-elevated)] px-2 pt-[max(0.5rem,env(safe-area-inset-top))] pb-1.5 sm:px-3 sm:py-2">
       <div className="mx-auto flex max-w-3xl items-center gap-1 sm:gap-3">
         <Link
           to="/library"
@@ -113,7 +114,7 @@ export function ReaderFooter({
 }: FooterProps) {
   if (!visible) return null;
   return (
-    <footer className="reader-chrome shrink-0 border-t border-[var(--border)] bg-[var(--bg-elevated)] px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:py-2">
+    <footer className="reader-chrome yudu-rise-in shrink-0 border-t border-[var(--border)] bg-[var(--bg-elevated)] px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:py-2">
       <div className="mx-auto max-w-3xl">
         <div className="flex items-center gap-3">
           <span className="w-10 shrink-0 text-right text-[11px] tabular-nums text-[var(--text-muted)]">
@@ -195,21 +196,3 @@ function HeadphonesIcon() {
   );
 }
 
-function SearchIcon() {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <circle cx="11" cy="11" r="7" />
-      <path d="M21 21l-4.35-4.35" />
-    </svg>
-  );
-}

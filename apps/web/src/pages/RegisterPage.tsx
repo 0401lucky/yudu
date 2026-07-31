@@ -1,5 +1,6 @@
 import { FormEvent, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
+import { PrimaryButton } from "../components/buttons";
 import { ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
@@ -116,13 +117,13 @@ export default function RegisterPage() {
             </p>
           ) : null}
 
-          <button
+          <PrimaryButton
             type="submit"
             disabled={submitting}
-            className="w-full rounded-lg bg-[var(--accent)] py-2.5 font-medium text-[var(--bg)] hover:opacity-90 disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated)]"
+            className="w-full py-2.5"
           >
             {submitting ? "注册中…" : "注册"}
-          </button>
+          </PrimaryButton>
         </form>
 
         <p className="mt-6 text-center text-sm text-[var(--text-muted)]">

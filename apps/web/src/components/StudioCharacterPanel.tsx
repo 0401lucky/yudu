@@ -1,4 +1,5 @@
 import type { StudioCharacter } from "@yudu/shared";
+import { OutlineButton, PrimaryButton } from "./buttons";
 import { CHARACTER_FIELDS } from "../lib/studioPrompts";
 
 interface StudioCharacterPanelProps {
@@ -42,29 +43,23 @@ export default function StudioCharacterPanel({
   return (
     <div className="space-y-4 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5">
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
+        <PrimaryButton
           disabled={generating}
           onClick={onGenerate}
-          className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm text-[var(--bg)] disabled:opacity-60"
+          className="px-3 py-1.5"
         >
           {generating ? "生成中…" : "AI 生成人设"}
-        </button>
-        <button
-          type="button"
-          onClick={onAdd}
-          className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm"
-        >
+        </PrimaryButton>
+        <OutlineButton onClick={onAdd} className="px-3 py-1.5">
           添加角色
-        </button>
-        <button
-          type="button"
+        </OutlineButton>
+        <OutlineButton
           disabled={saving || generating}
           onClick={onSave}
-          className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm disabled:opacity-60"
+          className="px-3 py-1.5"
         >
           保存人设
-        </button>
+        </OutlineButton>
         {generating ? (
           <button
             type="button"

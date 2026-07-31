@@ -1,16 +1,18 @@
+import SegmentedControl from "./SegmentedControl";
+
 /** 书架排序方式（记忆在 localStorage `yudu:shelf-sort`） */
 export type ShelfSortBy = "recent-read" | "recent-import" | "title";
 
 export const SHELF_SORT_KEY = "yudu:shelf-sort";
 
-const SORT_OPTIONS: { id: ShelfSortBy; label: string }[] = [
-  { id: "recent-read", label: "最近阅读" },
-  { id: "recent-import", label: "最近导入" },
-  { id: "title", label: "书名" },
+const SORT_OPTIONS: { value: ShelfSortBy; label: string }[] = [
+  { value: "recent-read", label: "最近阅读" },
+  { value: "recent-import", label: "最近导入" },
+  { value: "title", label: "书名" },
 ];
 
 export function isShelfSortBy(v: unknown): v is ShelfSortBy {
-  return SORT_OPTIONS.some((o) => o.id === v);
+  return SORT_OPTIONS.some((o) => o.value === v);
 }
 
 interface ShelfToolbarProps {
@@ -41,28 +43,12 @@ export default function ShelfToolbar({
     <div className="mb-4 flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         {/* 排序 Segmented */}
-        <div
-          className="flex overflow-hidden rounded-lg border border-[var(--border)] text-sm"
-          role="radiogroup"
-          aria-label="排序方式"
-        >
-          {SORT_OPTIONS.map((opt) => (
-            <button
-              key={opt.id}
-              type="button"
-              role="radio"
-              aria-checked={sortBy === opt.id}
-              onClick={() => onSortChange(opt.id)}
-              className={`px-3 py-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)] ${
-                sortBy === opt.id
-                  ? "bg-[var(--bg-elevated)] font-medium text-[var(--accent)]"
-                  : "text-[var(--text-muted)] hover:text-[var(--text)]"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          options={SORT_OPTIONS}
+          value={sortBy}
+          onChange={(v) => onSortChange(v as ShelfSortBy)}
+          ariaLabel="排序方式"
+        />
 
         <button
           type="button"

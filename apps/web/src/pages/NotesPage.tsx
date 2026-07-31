@@ -1,6 +1,9 @@
 import type { HighlightWithChapter, NotesBookGroup } from "@yudu/shared";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import ColorDot from "../components/ColorDot";
+import ErrorBanner from "../components/ErrorBanner";
+import { OutlineButton, PrimaryButtonLink } from "../components/buttons";
 import NoteEditorSheet from "../components/NoteEditorSheet";
 import QuoteCardModal from "../components/QuoteCardModal";
 import {
@@ -10,13 +13,6 @@ import {
   updateHighlightNote,
 } from "../lib/api";
 import type { QuoteCardData } from "../lib/quoteCardRender";
-
-/** 列表小圆点颜色（与 HighlightPopover 取色一致） */
-const HL_DOT_COLOR: Record<HighlightWithChapter["color"], string> = {
-  yellow: "#eab308",
-  green: "#22c55e",
-  blue: "#3b82f6",
-};
 
 /** 编辑目标：书 + 高亮 id（保存/清除时定位） */
 interface EditTarget {
@@ -156,14 +152,7 @@ export default function NotesPage() {
           </p>
         </div>
 
-        {error ? (
-          <p
-            className="mb-4 rounded-lg border border-red-500/40 bg-red-950/20 px-3 py-2 text-sm text-red-400"
-            role="alert"
-          >
-            {error}
-          </p>
-        ) : null}
+        {error ? <ErrorBanner message={error} className="mb-4" /> : null}
 
         {loading ? (
           <div className="space-y-4">
@@ -180,12 +169,9 @@ export default function NotesPage() {
             <p className="mt-2 text-sm text-[var(--text-muted)]">
               阅读时选中正文文字即可高亮，点击高亮还能写下想法。
             </p>
-            <Link
-              to="/library"
-              className="mt-6 inline-block rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-            >
+            <PrimaryButtonLink to="/library" className="mt-6 px-4 py-2">
               去书架
-            </Link>
+            </PrimaryButtonLink>
           </div>
         ) : (
           <div className="space-y-6">
@@ -204,13 +190,12 @@ export default function NotesPage() {
                       {group.highlights.length} 条标注
                     </p>
                   </div>
-                  <button
-                    type="button"
+                  <OutlineButton
                     onClick={() => handleExport(group)}
-                    className="shrink-0 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-[var(--text)] hover:border-[var(--accent)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                    className="shrink-0 px-3 py-1.5"
                   >
                     导出 Markdown
-                  </button>
+                  </OutlineButton>
                 </div>
 
                 <ul>
@@ -225,11 +210,7 @@ export default function NotesPage() {
                         className="min-w-0 flex-1 rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                       >
                         <span className="flex items-start gap-1.5">
-                          <span
-                            aria-hidden
-                            className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
-                            style={{ backgroundColor: HL_DOT_COLOR[hl.color] }}
-                          />
+                          <ColorDot color={hl.color} className="mt-1.5" />
                           <span className="min-w-0 flex-1 text-sm leading-snug text-[var(--text)]">
                             {hl.excerpt || "（无摘录）"}
                           </span>

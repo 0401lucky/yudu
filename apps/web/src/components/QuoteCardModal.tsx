@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { OutlineButton, PrimaryButton } from "./buttons";
 import type { QuoteCardData, QuoteCardTemplate } from "../lib/quoteCardRender";
 import { quoteCardToBlob, renderQuoteCard } from "../lib/quoteCardRender";
 
@@ -96,9 +97,9 @@ export default function QuoteCardModal({ data, onClose }: QuoteCardModalProps) {
         type="button"
         aria-label="关闭分享卡片"
         onClick={onClose}
-        className="absolute inset-0 bg-black/60"
+        className="yudu-fade-in absolute inset-0 bg-black/60"
       />
-      <div className="relative flex max-h-full w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] shadow-2xl">
+      <div className="yudu-modal-in relative flex max-h-full w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] shadow-2xl">
         <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
           <h2 className="text-sm font-medium text-[var(--text)]">分享书摘</h2>
           <div
@@ -151,22 +152,17 @@ export default function QuoteCardModal({ data, onClose }: QuoteCardModalProps) {
             关闭
           </button>
           {canShare ? (
-            <button
-              type="button"
-              onClick={handleShare}
-              className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-[var(--text)] hover:border-[var(--accent)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-            >
+            <OutlineButton onClick={handleShare} className="px-3 py-1.5">
               分享
-            </button>
+            </OutlineButton>
           ) : null}
-          <button
-            type="button"
+          <PrimaryButton
             onClick={handleSave}
             disabled={!url}
-            className="rounded-lg bg-[var(--accent)] px-4 py-1.5 text-sm font-medium text-[var(--bg)] disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+            className="px-4 py-1.5"
           >
             保存图片
-          </button>
+          </PrimaryButton>
         </div>
       </div>
     </div>

@@ -7,6 +7,7 @@ import {
   localDateStr,
   toSecondsMap,
 } from "../lib/readingStats";
+import { ChevronIcon } from "../lib/icons";
 import ReadingHeatmap from "./ReadingHeatmap";
 
 interface ReadingStatsBarProps {
@@ -133,21 +134,3 @@ function FlameIcon({ lit }: { lit: boolean }) {
   );
 }
 
-function ChevronIcon({ open }: { open: boolean }) {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={`transition-transform duration-300 ${open ? "rotate-180" : ""}`}
-      aria-hidden
-    >
-      <path d="M6 9l6 6 6-6" />
-    </svg>
-  );
-}

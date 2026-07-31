@@ -41,6 +41,10 @@
   --hl-green: rgb(34 197 94 / 0.3);
   --hl-blue: rgb(59 130 246 / 0.32);
   --hl-tts: rgb(196 165 116 / 0.22);
+  /* 高亮色相实色（色点/徽标用，双主题同值；半透明 --hl-* 做 8px 圆点过淡） */
+  --hl-solid-yellow: #eab308;
+  --hl-solid-green: #22c55e;
+  --hl-solid-blue: #3b82f6;
   --overlay: rgba(0, 0, 0, 0.5);
 }
 [data-theme="paper"] {
@@ -68,6 +72,10 @@
   --hl-green: rgb(74 222 128 / 0.45);
   --hl-blue: rgb(96 165 250 / 0.45);
   --hl-tts: rgb(196 165 116 / 0.3);
+  /* 高亮色相实色（色点/徽标用，双主题同值） */
+  --hl-solid-yellow: #eab308;
+  --hl-solid-green: #22c55e;
+  --hl-solid-blue: #3b82f6;
   --overlay: rgba(60, 50, 35, 0.4);
 }
 html, body, #root {
@@ -290,7 +298,7 @@ body {
 
 /* 文本高亮底色（CSS Custom Highlight API）：
    半透明色叠在纸面/夜间两种页底上均保持正文可读；夜间降低不透明度防止刺眼
-   （值取 --hl-* 变量，night/paper 各自调色；夜间 variant 保留选择器结构） */
+   （值取 --hl-* 变量，night/paper 各自调色，无需求助于主题 variant 选择器） */
 ::highlight(yudu-hl-yellow) {
   background-color: var(--hl-yellow);
 }
@@ -300,20 +308,8 @@ body {
 ::highlight(yudu-hl-blue) {
   background-color: var(--hl-blue);
 }
-[data-theme="night"] ::highlight(yudu-hl-yellow) {
-  background-color: var(--hl-yellow);
-}
-[data-theme="night"] ::highlight(yudu-hl-green) {
-  background-color: var(--hl-green);
-}
-[data-theme="night"] ::highlight(yudu-hl-blue) {
-  background-color: var(--hl-blue);
-}
-/* TTS 当前朗读段底色：取琥珀强调色调淡，与三色标注区分；夜间降低不透明度 */
+/* TTS 当前朗读段底色：取琥珀强调色调淡，与三色标注区分 */
 ::highlight(yudu-tts) {
-  background-color: var(--hl-tts);
-}
-[data-theme="night"] ::highlight(yudu-tts) {
   background-color: var(--hl-tts);
 }
 /* 带笔记的高亮：叠加下划虚线标识（不支持 Custom Highlight 装饰的浏览器静默降级） */
@@ -342,6 +338,46 @@ body {
 .yudu-pop-in {
   animation: yudu-pop-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
   transform-origin: top center;
+}
+
+/* 弹层与阅读器 chrome 挂载动画：只动 transform/opacity，200ms --ease-out；
+   离场直接卸载无需反向（reduced-motion 由下方全局规则削弱） */
+@keyframes yudu-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes yudu-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes yudu-modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.yudu-fade-in {
+  animation: yudu-fade-in 0.2s var(--ease-out);
+}
+.yudu-rise-in {
+  animation: yudu-rise-in 0.2s var(--ease-out);
+}
+.yudu-modal-in {
+  animation: yudu-modal-in 0.2s var(--ease-out);
 }
 
 /* 选择器内列表：细滚动条，融入主题（复用热力图口径） */

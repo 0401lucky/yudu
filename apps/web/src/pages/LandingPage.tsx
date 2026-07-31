@@ -1,5 +1,6 @@
-import { Link, Navigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
+import { OutlineButtonLink, PrimaryButtonLink } from "../components/buttons";
 
 export default function LandingPage() {
   const { user, loading } = useAuth();
@@ -40,18 +41,12 @@ export default function LandingPage() {
             导入文档与电子书（txt / md / epub / pdf），账号云同步进度与书签。在安静的深色界面里左右翻页——笔记、手册、长文都合适。
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3 md:justify-start">
-            <Link
-              to="/register"
-              className="rounded-lg bg-[var(--accent)] px-6 py-2.5 font-medium text-[var(--bg)] hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]"
-            >
+            <PrimaryButtonLink to="/register" className="px-6 py-2.5">
               开始使用
-            </Link>
-            <Link
-              to="/login"
-              className="rounded-lg border border-[var(--border)] px-6 py-2.5 text-[var(--text)] hover:border-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-            >
+            </PrimaryButtonLink>
+            <OutlineButtonLink to="/login" className="px-6 py-2.5">
               登录
-            </Link>
+            </OutlineButtonLink>
           </div>
         </div>
 

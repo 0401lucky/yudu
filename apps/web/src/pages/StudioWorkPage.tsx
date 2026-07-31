@@ -8,6 +8,11 @@ import type {
 } from "@yudu/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import {
+  OutlineButton,
+  OutlineButtonLink,
+  PrimaryButton,
+} from "../components/buttons";
 import StudioModelPicker from "../components/StudioModelPicker";
 import StudioChaptersPanel from "../components/StudioChaptersPanel";
 import StudioCharacterPanel from "../components/StudioCharacterPanel";
@@ -632,31 +637,33 @@ export default function StudioWorkPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2 text-sm">
             {detail.onShelf ? (
-              <Link
+              <OutlineButtonLink
                 to={`/read/${detail.id}`}
-                className="rounded-lg border border-[var(--border)] px-3 py-1.5 transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                className="px-3 py-1.5"
               >
                 去阅读
-              </Link>
+              </OutlineButtonLink>
             ) : null}
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void toggleShelf()}
-              className={`rounded-lg px-3 py-1.5 transition-colors disabled:opacity-60 ${
-                detail.onShelf
-                  ? "border border-[var(--border)] hover:border-[var(--accent)]"
-                  : "bg-[var(--accent)] text-[var(--bg)] hover:opacity-90"
-              }`}
-            >
-              {detail.onShelf ? "下架" : "上架到书架"}
-            </button>
-            <Link
-              to="/library"
-              className="rounded-lg border border-[var(--border)] px-3 py-1.5 transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
-            >
+            {detail.onShelf ? (
+              <OutlineButton
+                disabled={saving}
+                onClick={() => void toggleShelf()}
+                className="px-3 py-1.5"
+              >
+                下架
+              </OutlineButton>
+            ) : (
+              <PrimaryButton
+                disabled={saving}
+                onClick={() => void toggleShelf()}
+                className="px-3 py-1.5"
+              >
+                上架到书架
+              </PrimaryButton>
+            )}
+            <OutlineButtonLink to="/library" className="px-3 py-1.5">
               书架
-            </Link>
+            </OutlineButtonLink>
           </div>
         </div>
         <StudioModelPicker
@@ -835,24 +842,22 @@ export default function StudioWorkPage() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
+                <PrimaryButton
                   disabled={generating || chapterLoading}
                   onClick={() => void genChapterBody()}
-                  className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm text-[var(--bg)] disabled:opacity-60"
+                  className="px-3 py-1.5"
                 >
                   {generating
                     ? `生成中… ${chapterCharCount.toLocaleString("zh-CN")} 字`
                     : "AI 生成/重生成本章"}
-                </button>
-                <button
-                  type="button"
+                </PrimaryButton>
+                <OutlineButton
                   disabled={saving || generating}
                   onClick={() => void saveChapterBody()}
-                  className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm"
+                  className="px-3 py-1.5"
                 >
                   保存本章
-                </button>
+                </OutlineButton>
                 {generating ? (
                   <button
                     type="button"

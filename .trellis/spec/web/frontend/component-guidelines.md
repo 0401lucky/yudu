@@ -45,10 +45,12 @@
 | `ReaderViewport` | 版心测量与左右分页展示章节文本（翻页模式） |
 | `ScrollReaderViewport` | 垂直滚动 + 三章无缝拼接（连续阅读模式） |
 | `ReaderChrome` | 顶栏/底栏显示与隐藏 |
-| `TocDrawer` | 目录 + 书签 + 标注列表 |
+| `TocDrawer` / `SearchDrawer` | 目录+书签+标注 / 书内搜索；共用 `DrawerShell` 外壳 |
 | `HighlightPopover` | 选区/命中高亮的操作气泡（3 色 + 删除，越界翻转定位） |
-| `ReaderSettingsSheet` | 字号/行距/边距/主题等设置 UI |
+| `ReaderSettingsSheet` / `NoteEditorSheet` | 设置 / 笔记编辑；共用 `SheetShell` 外壳 |
 | `ThemeProvider` | 云端偏好加载与 `setPrefs` |
+
+**通用组件（新代码优先复用，禁止复制样式串）**：`buttons.tsx`（Primary/Outline 按钮）、`ErrorBanner`、`SegmentedControl`、`ColorDot`（高亮色点，`--hl-solid-*`）、`SheetShell` / `DrawerShell`（常驻挂载 + 过渡动画外壳）、`lib/icons.tsx`（内联 SVG 统一出口）。
 
 页面编排状态：`LibraryPage`、`ReaderPage` 持有数据拉取与组合逻辑。
 

@@ -34,7 +34,7 @@ export default function TtsControlBar({
     "h-9 min-w-0 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-2 text-sm text-[var(--text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
 
   return (
-    <div className="reader-chrome shrink-0 border-t border-[var(--border)] bg-[var(--bg-elevated)] px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+    <div className="reader-chrome yudu-rise-in shrink-0 border-t border-[var(--border)] bg-[var(--bg-elevated)] px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
       <div className="mx-auto flex max-w-3xl items-center gap-2">
         <button
           type="button"
