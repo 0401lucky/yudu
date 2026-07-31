@@ -58,7 +58,7 @@ export default function NoteEditorSheet({
         <div className="flex items-center justify-between gap-3">
           <span
             className={`text-xs ${
-              overLimit ? "text-red-400" : "text-[var(--text-muted)]"
+              overLimit ? "text-[var(--danger)]" : "text-[var(--text-muted)]"
             }`}
           >
             {draft.length}/{MAX_HIGHLIGHT_NOTE_CHARS}
@@ -68,7 +68,7 @@ export default function NoteEditorSheet({
               <button
                 type="button"
                 onClick={() => onSave("")}
-                className="rounded-lg px-3 py-1.5 text-sm text-[var(--text-muted)] hover:text-red-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                className="rounded-lg px-3 py-1.5 text-sm text-[var(--text-muted)] hover:text-[var(--danger)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
               >
                 清除想法
               </button>

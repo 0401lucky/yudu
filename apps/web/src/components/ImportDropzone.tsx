@@ -181,7 +181,7 @@ export default function ImportDropzone({
 
       {hint && !onLocalError ? (
         <p
-          className={`mt-2 text-sm ${hint.includes("正在") ? "text-[var(--text-muted)]" : "text-red-400"}`}
+          className={`mt-2 text-sm ${hint.includes("正在") ? "text-[var(--text-muted)]" : "text-[var(--danger)]"}`}
           role="status"
         >
           {hint}

@@ -165,7 +165,7 @@ export default function HighlightPopover({
                 type="button"
                 aria-label="删除标注"
                 onClick={onDelete}
-                className="flex h-7 items-center rounded-full px-2 text-sm text-[var(--text-muted)] hover:text-red-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                className="flex h-7 items-center rounded-full px-2 text-sm text-[var(--text-muted)] hover:text-[var(--danger)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
               >
                 删除
               </button>

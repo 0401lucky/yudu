@@ -110,7 +110,7 @@ export default function TocDrawer({
                   type="button"
                   onClick={() => onRemoveBookmark(mark)}
                   aria-label="删除书签"
-                  className="mr-1 flex h-10 w-10 shrink-0 items-center justify-center rounded text-[var(--text-muted)] hover:text-red-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                  className="mr-1 flex h-10 w-10 shrink-0 items-center justify-center rounded text-[var(--text-muted)] hover:text-[var(--danger)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                 >
                   ✕
                 </button>
@@ -154,7 +154,7 @@ export default function TocDrawer({
                   type="button"
                   onClick={() => onRemoveHighlight(hl)}
                   aria-label="删除标注"
-                  className="mr-1 flex h-10 w-10 shrink-0 items-center justify-center rounded text-[var(--text-muted)] hover:text-red-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                  className="mr-1 flex h-10 w-10 shrink-0 items-center justify-center rounded text-[var(--text-muted)] hover:text-[var(--danger)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                 >
                   ✕
                 </button>

@@ -209,7 +209,7 @@ export default function StudioModelPicker({
         <span className="shrink-0 text-[var(--text-muted)]">{label}</span>
         {combo}
         {err ? (
-          <span className="text-xs text-red-400" role="alert">
+          <span className="text-xs text-[var(--danger)]" role="alert">
             {err}
           </span>
         ) : null}
@@ -229,7 +229,7 @@ export default function StudioModelPicker({
       </div>
       {combo}
       {err ? (
-        <p className="mt-2 text-xs text-red-400" role="alert">
+        <p className="mt-2 text-xs text-[var(--danger)]" role="alert">
           {err}
         </p>
       ) : null}

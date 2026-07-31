@@ -836,7 +836,7 @@ export default function ReaderPage() {
   if (error || !book) {
     return (
       <main className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 p-8">
-        <p className="text-red-400" role="alert">
+        <p className="text-[var(--danger)]" role="alert">
           {error ?? "书籍不存在"}
         </p>
         <Link to="/library" className="text-[var(--accent)] hover:underline">

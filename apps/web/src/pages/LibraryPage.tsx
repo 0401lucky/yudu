@@ -614,7 +614,7 @@ export default function LibraryPage() {
                     </button>
                   </div>
                   {pickerError ? (
-                    <p className="mt-2 text-xs text-red-400" role="alert">
+                    <p className="mt-2 text-xs text-[var(--danger)]" role="alert">
                       {pickerError}
                     </p>
                   ) : null}
@@ -626,7 +626,7 @@ export default function LibraryPage() {
               type="button"
               onClick={() => void handleBatchDelete()}
               disabled={batchBusy || selectedBooks.length === 0}
-              className="rounded px-2 py-1 text-red-400 hover:bg-red-950/40 hover:text-red-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:opacity-50"
+              className="rounded px-2 py-1 text-[var(--danger)] hover:bg-[var(--danger-weak)] hover:text-[var(--danger)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:opacity-50"
             >
               {batchBusy ? "处理中…" : "删除"}
             </button>

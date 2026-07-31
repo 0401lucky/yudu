@@ -92,7 +92,7 @@ export default function StudioPremisePanel({
             <button
               type="button"
               onClick={onStop}
-              className="rounded-lg border border-red-500/40 px-3 py-2 text-sm text-red-300"
+              className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_40%,transparent)] px-3 py-2 text-sm text-[var(--danger)]"
             >
               停止
             </button>

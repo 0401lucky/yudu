@@ -253,7 +253,7 @@ export default function NotesPage() {
                           type="button"
                           aria-label="删除标注"
                           onClick={() => void handleRemove(group.bookId, hl)}
-                          className="rounded px-2 py-1 text-xs text-[var(--text-muted)] hover:text-red-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                          className="rounded px-2 py-1 text-xs text-[var(--text-muted)] hover:text-[var(--danger)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                         >
                           删除
                         </button>

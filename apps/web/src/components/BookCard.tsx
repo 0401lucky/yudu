@@ -110,6 +110,10 @@ export default function BookCard({
               coverLoaded ? "opacity-100" : "opacity-0"
             }`}
             loading="lazy"
+            // 缓存命中时 load 事件在 React 监听挂载前已派发，ref 挂载时 complete 兜底
+            ref={(el) => {
+              if (el && el.complete) setCoverLoaded(true);
+            }}
             onLoad={() => setCoverLoaded(true)}
             onError={() => setCoverFailed(true)}
           />
@@ -130,7 +134,7 @@ export default function BookCard({
           <span
             className={`absolute left-2 top-2 rounded px-1.5 py-0.5 text-xs font-medium ${
               book.status === "failed"
-                ? "bg-red-900/80 text-red-200"
+                ? "bg-[var(--danger-weak)] text-[var(--danger)]"
                 : "bg-[color:color-mix(in_srgb,var(--bg)_80%,transparent)] text-[var(--accent)]"
             }`}
           >
@@ -179,7 +183,7 @@ export default function BookCard({
         ) : null}
 
         {book.status === "failed" && book.errorMessage ? (
-          <p className="line-clamp-2 text-xs text-red-400" title={book.errorMessage}>
+          <p className="line-clamp-2 text-xs text-[var(--danger)]" title={book.errorMessage}>
             {book.errorMessage}
           </p>
         ) : null}
@@ -228,7 +232,7 @@ export default function BookCard({
               type="button"
               onClick={handleDelete}
               disabled={deleting || reparsing}
-              className="rounded px-1.5 py-1 text-xs text-[var(--text-muted)] opacity-80 hover:bg-red-950/40 hover:text-red-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:opacity-50"
+              className="rounded px-1.5 py-1 text-xs text-[var(--text-muted)] opacity-80 hover:bg-[var(--danger-weak)] hover:text-[var(--danger)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:opacity-50"
               aria-label={`删除《${book.title}》`}
             >
               {deleting ? "…" : "删除"}

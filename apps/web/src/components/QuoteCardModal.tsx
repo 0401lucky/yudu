@@ -127,7 +127,7 @@ export default function QuoteCardModal({ data, onClose }: QuoteCardModalProps) {
 
         <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--bg)] p-4">
           {error ? (
-            <p className="py-10 text-center text-sm text-red-400" role="alert">
+            <p className="py-10 text-center text-sm text-[var(--danger)]" role="alert">
               {error}
             </p>
           ) : url ? (

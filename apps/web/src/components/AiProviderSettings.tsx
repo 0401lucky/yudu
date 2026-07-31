@@ -249,7 +249,7 @@ export default function AiProviderSettings() {
 
       {hint ? <p className="text-xs text-[var(--text-muted)]">{hint}</p> : null}
       {error ? (
-        <p className="text-sm text-red-400" role="alert">
+        <p className="text-sm text-[var(--danger)]" role="alert">
           {error}
         </p>
       ) : null}
@@ -350,7 +350,7 @@ function ProviderList({
                     </span>
                   ) : null}
                   {hasCredentials(p) ? null : (
-                    <span className="rounded bg-red-500/15 px-1.5 py-0.5 text-xs text-red-400">
+                    <span className="rounded bg-[var(--danger-weak)] px-1.5 py-0.5 text-xs text-[var(--danger)]">
                       未配密钥
                     </span>
                   )}
@@ -382,7 +382,7 @@ function ProviderList({
                       type="button"
                       disabled={busy}
                       onClick={() => onDelete(p)}
-                      className="text-red-400 hover:underline disabled:opacity-50"
+                      className="text-[var(--danger)] hover:underline disabled:opacity-50"
                     >
                       删除
                     </button>

@@ -108,7 +108,7 @@ export default function LoginPage() {
           </div>
 
           {error ? (
-            <p className="text-sm text-red-400" role="alert">
+            <p className="text-sm text-[var(--danger)]" role="alert">
               {error}
             </p>
           ) : null}

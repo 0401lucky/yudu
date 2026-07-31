@@ -583,7 +583,7 @@ export default function StudioWorkPage() {
   if (!detail || !assets) {
     return (
       <main className="min-h-full p-8">
-        <p className="text-red-400">{error ?? "作品不存在"}</p>
+        <p className="text-[var(--danger)]">{error ?? "作品不存在"}</p>
         <Link to="/studio" className="mt-4 inline-block text-[var(--accent)]">
           返回创作台
         </Link>
@@ -693,7 +693,7 @@ export default function StudioWorkPage() {
 
       <section className="mx-auto mt-6 max-w-5xl space-y-4">
         {error ? (
-          <p className="text-sm text-red-400" role="alert">
+          <p className="text-sm text-[var(--danger)]" role="alert">
             {error}
           </p>
         ) : null}
