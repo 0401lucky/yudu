@@ -396,6 +396,13 @@ body {
   animation: yudu-page-in 150ms var(--ease-out);
 }
 
+/* 纸面登录页颗粒纹理：feTurbulence 灰度噪点（深色颗粒），
+   低透明度叠在浅色纸面上模拟纸张纤维质感 */
+.yudu-paper-texture {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 140px 140px;
+}
+
 /* 选择器内列表：细滚动条，融入主题（复用热力图口径） */
 .yudu-thin-scroll {
   scrollbar-width: thin;
